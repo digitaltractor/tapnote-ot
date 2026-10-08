@@ -23,8 +23,8 @@ final class TapNoteCoreTests: XCTestCase {
             activities: [Activity.starterCatalog[0], Activity.starterCatalog[2]],
             goals: [g1, g2],
             observations: [
-                Observation(goalID: g1.id, correct: 7, total: 10, promptLevelName: "Verbal"),
-                Observation(goalID: g2.id, correct: 3, total: 6, promptLevelName: "Partial physical")
+                GoalObservation(goalID: g1.id, correct: 7, total: 10, promptLevelName: "Verbal"),
+                GoalObservation(goalID: g2.id, correct: 3, total: 6, promptLevelName: "Partial physical")
             ],
             regulation: .calm,
             engagement: 4,
@@ -148,7 +148,7 @@ final class TapNoteCoreTests: XCTestCase {
         let goal = GoalSnapshot(number: 1, shortName: "Letter formation", criterionPercent: 90)
         let values = [40, 50, 55, 70]
         let sessions = values.enumerated().map { i, v in
-            SessionSnapshot(studentCode: "K7-OTTER", date: date("2026-09-0\(i + 1)T09:00:00Z"), observations: [Observation(goalID: goal.id, correct: v, total: 100, promptLevelName: i < 2 ? "Partial physical" : "Verbal")])
+            SessionSnapshot(studentCode: "K7-OTTER", date: date("2026-09-0\(i + 1)T09:00:00Z"), observations: [GoalObservation(goalID: goal.id, correct: v, total: 100, promptLevelName: i < 2 ? "Partial physical" : "Verbal")])
         }
         let range = date("2026-09-01T00:00:00Z")...date("2026-09-30T23:59:59Z")
         let report = ProgressReportComposer(timeStyle: style).progress(for: goal, sessions: sessions, in: range, periodLabel: "month")

@@ -1,0 +1,54 @@
+name: TapNote
+options:
+  bundleIdPrefix: com.digitaltractor
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+packages:
+  TapNoteCore:
+    path: Packages/TapNoteCore
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  TapNote:
+    type: application
+    platform: iOS
+    sources:
+      - path: TapNote
+    dependencies:
+      - package: TapNoteCore
+      - sdk: LocalAuthentication.framework
+      - sdk: Security.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.digitaltractor.tapnote
+        PRODUCT_NAME: TapNote
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: TapNote OT
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "TapNote uses Face ID to show students' real names and to sign notes."
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+
+schemes:
+  TapNote:
+    build:
+      targets:
+        TapNote: all
+    run:
+      config: Debug
+    archive:
+      config: Release

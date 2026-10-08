@@ -20,7 +20,7 @@ public struct GoalSnapshot: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
-public struct Observation: Codable, Hashable, Sendable {
+public struct GoalObservation: Codable, Hashable, Sendable {
     public var goalID: UUID
     public var correct: Int
     public var total: Int
@@ -53,7 +53,7 @@ public struct SessionSnapshot: Codable, Hashable, Identifiable, Sendable {
     public var isMakeUp: Bool
     public var activities: [Activity]
     public var goals: [GoalSnapshot]
-    public var observations: [Observation]
+    public var observations: [GoalObservation]
     public var regulation: RegulationState?
     public var engagement: Int?
     public var progress: ProgressIndicator?
@@ -74,7 +74,7 @@ public struct SessionSnapshot: Codable, Hashable, Identifiable, Sendable {
         isMakeUp: Bool = false,
         activities: [Activity] = [],
         goals: [GoalSnapshot] = [],
-        observations: [Observation] = [],
+        observations: [GoalObservation] = [],
         regulation: RegulationState? = nil,
         engagement: Int? = nil,
         progress: ProgressIndicator? = nil,
@@ -112,7 +112,7 @@ public struct SessionSnapshot: Codable, Hashable, Identifiable, Sendable {
         sbapServiceType(attendance: attendance, delivery: delivery, isMakeUp: isMakeUp)
     }
 
-    public func observation(for goal: GoalSnapshot) -> Observation? {
+    public func observation(for goal: GoalSnapshot) -> GoalObservation? {
         observations.first { $0.goalID == goal.id }
     }
 }

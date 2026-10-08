@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core-tests-linux:
+    name: Core tests (Linux)
+    runs-on: ubuntu-latest
+    container: swift:5.10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run TapNoteCore tests
+        working-directory: Packages/TapNoteCore
+        run: swift test
+
+  ios-build:
+    name: iOS app build (simulator)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run TapNoteCore tests (macOS)
+        working-directory: Packages/TapNoteCore
+        run: swift test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project TapNote.xcodeproj \
+            -scheme TapNote \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -n 80
