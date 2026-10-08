@@ -2,7 +2,8 @@
 
 A native iPhone and iPad app for a school-based occupational therapist. She taps in session data during sessions, reviews and signs fact-only notes at the end of the day, and drafts progress reports per student. Students appear by code (`K7-OTTER`) everywhere; real names live only in the phone's Keychain and are added to files at export time.
 
-- **Clickable prototype:** [`docs/index.html`](docs/index.html), served by GitHub Pages when enabled.
+- **Web app (PWA):** [`web/`](web/), served at `https://digitaltractor.github.io/tapnote-ot/app/`. No Mac or App Store needed.
+- **Clickable prototype:** [`docs/index.html`](docs/index.html), served at `https://digitaltractor.github.io/tapnote-ot/`.
 - **Research and PRD:** kept in the project's Claude doc.
 
 ## What's in v1
@@ -27,7 +28,25 @@ A native iPhone and iPad app for a school-based occupational therapist. She taps
 
 These are school records under FERPA, not HIPAA. If the district bills PA Medicaid (SBAP), confirm with them whether this app may serve as the record or whether notes must be re-entered in the district system.
 
-## Build and run
+## Web app (PWA)
+
+The same v1 features as the iOS app, built with Vite, TypeScript and Preact. Install it on an iPhone or iPad from Safari: open the link, tap **Share → Add to Home Screen**. It runs offline, and data stays on the device in IndexedDB.
+
+- **Vault.** Real identities are encrypted with a random data key (AES-GCM). That key is wrapped twice: once by a **passkey** (Face ID / Touch ID, through the WebAuthn PRF extension, iOS 18+) and once by a **passphrase** (PBKDF2-SHA256 at 310k rounds) for fallback and recovery. Names are decrypted only in memory, and the vault locks after 5 minutes idle or 1 minute in the background.
+- **Signing and identified exports.** Both require Face ID, or the passphrase, every time.
+- **Backups.** The backup file format is identical to the iOS app's, so a `.tapnotebackup` made on one restores on the other.
+- **Storage.** Install to the Home Screen and export backups regularly. Safari can clear website data for sites that aren't installed.
+
+```sh
+cd web
+npm install
+npm test          # core logic, store, vault and backup tests
+BASE=/ npm run dev
+```
+
+Deploys: `.github/workflows/pages.yml` publishes the prototype at `/` and the app at `/app` on every push to `main`. One-time setup: in the repo go to **Settings → Pages**, then under **Build and deployment → Source** choose **GitHub Actions**.
+
+## Native iOS app: build and run
 
 Requirements: a Mac with Xcode 16 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
@@ -58,6 +77,7 @@ project.yml                 XcodeGen project spec
 TapNote/                    SwiftUI app
   App/  Model/  Security/  Export/  Features/  UI/
 Packages/TapNoteCore/       Platform-neutral logic + tests
+web/                        PWA (Vite + TypeScript + Preact) with the core logic ported to TS
 docs/index.html             Clickable prototype (GitHub Pages)
 ```
 

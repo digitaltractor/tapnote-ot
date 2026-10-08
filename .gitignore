@@ -13,3 +13,6 @@ Packages/TapNoteCore/.build/
 # Never commit exports or backups
 *.tapnotebackup
 exports/
+# Web app
+web/node_modules/
+web/dist/
