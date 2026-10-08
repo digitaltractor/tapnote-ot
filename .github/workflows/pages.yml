@@ -34,7 +34,7 @@ jobs:
       - name: Build
         working-directory: web
         env:
-          BASE: /tapnote-ot/app/
+          BASE: /app/
         run: npm run build
       - name: Assemble site (prototype at /, app at /app)
         run: |

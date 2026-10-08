@@ -2,9 +2,9 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// Served from GitHub Pages at https://digitaltractor.github.io/tapnote-ot/app/
+// Served from GitHub Pages at https://tapnoteot.com/app/ (custom domain; see docs/CNAME)
 // Override with BASE=/ for local preview.
-const base = process.env.BASE ?? '/tapnote-ot/app/';
+const base = process.env.BASE ?? '/app/';
 
 export default defineConfig({
   base,

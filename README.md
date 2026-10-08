@@ -2,8 +2,8 @@
 
 A native iPhone and iPad app for a school-based occupational therapist. She taps in session data during sessions, reviews and signs fact-only notes at the end of the day, and drafts progress reports per student. Students appear by code (`K7-OTTER`) everywhere; real names live only in the phone's Keychain and are added to files at export time.
 
-- **Web app (PWA):** [`web/`](web/), served at `https://digitaltractor.github.io/tapnote-ot/app/`. No Mac or App Store needed.
-- **Clickable prototype:** [`docs/index.html`](docs/index.html), served at `https://digitaltractor.github.io/tapnote-ot/`.
+- **Web app (PWA):** [`web/`](web/), served at `https://tapnoteot.com/app/`. No Mac or App Store needed.
+- **Clickable prototype:** [`docs/index.html`](docs/index.html), served at `https://tapnoteot.com/`.
 - **Research and PRD:** kept in the project's Claude doc.
 
 ## What's in v1
