@@ -60,6 +60,15 @@ open TapNote.xcodeproj
 2. Choose an iPhone simulator or a connected device and press Run.
 3. On first launch, go to **Settings → Load sample students** to try it without real data.
 
+### Ship to TestFlight (no Mac needed)
+
+`.github/workflows/testflight.yml` archives, signs (cloud-managed signing via an App Store Connect API key) and uploads a build. One-time setup:
+
+1. **App Store Connect → Users and Access → Integrations → App Store Connect API**: create a team key with the **Admin** role, which is needed for cloud-managed signing certificates. Download the `.p8`, and note the **Key ID** and **Issuer ID**.
+2. **App Store Connect → Apps → +**: create the app with bundle ID `com.digitaltractor.tapnote`. Register the bundle ID at developer.apple.com → Identifiers first if it isn't offered.
+3. **GitHub → repo Settings → Secrets and variables → Actions**: add `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_KEY_P8` (the full text of the `.p8` file).
+4. **Actions → Ship to TestFlight → Run workflow.** The build shows up in TestFlight after Apple's processing. Add her as a tester there.
+
 ### Core logic tests
 
 Note drafting, self-audit, CSV export, progress reports and pseudonyms live in `Packages/TapNoteCore`, a plain Swift package:

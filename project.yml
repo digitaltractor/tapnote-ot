@@ -30,6 +30,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.digitaltractor.tapnote
         PRODUCT_NAME: TapNote
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: TapNote OT

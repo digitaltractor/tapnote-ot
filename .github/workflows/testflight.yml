@@ -1,0 +1,102 @@
+name: Ship to TestFlight
+
+# Run manually: Actions → Ship to TestFlight → Run workflow.
+# Needs four repository secrets (Settings → Secrets and variables → Actions):
+#   APPLE_TEAM_ID      10-character Team ID from developer.apple.com → Membership
+#   ASC_KEY_ID         App Store Connect API key ID
+#   ASC_ISSUER_ID      App Store Connect API issuer ID
+#   ASC_KEY_P8         Full contents of the downloaded AuthKey_XXXXXXXXXX.p8 file
+# The app record for com.digitaltractor.tapnote must already exist in App Store Connect.
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: "What to test (shown to testers)"
+        required: false
+        default: ""
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          for v in TEAM_ID ASC_KEY_ID ASC_ISSUER_ID; do [ -z "${!v}" ] && missing="$missing $v"; done
+          [ -z "$ASC_KEY_P8" ] && missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing"; exit 1; fi
+
+      - name: Install the App Store Connect API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      - name: Core tests
+        working-directory: Packages/TapNoteCore
+        run: swift test
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Archive (cloud signing via API key)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project TapNote.xcodeproj \
+            -scheme TapNote \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/TapNote.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            archive | tail -n 60
+
+      - name: Export and upload to App Store Connect
+        run: |
+          set -o pipefail
+          sed "s/TEAM_ID_PLACEHOLDER/$TEAM_ID/" ci/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/TapNote.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" | tail -n 60
+
+      - name: Summary
+        if: success()
+        env:
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          echo "### Uploaded build ${{ github.run_number }} to App Store Connect" >> "$GITHUB_STEP_SUMMARY"
+          echo "It appears in TestFlight after Apple finishes processing (usually 5–30 minutes)." >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$NOTES" ]; then printf 'Notes: %s\n' "$NOTES" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Remove API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"
