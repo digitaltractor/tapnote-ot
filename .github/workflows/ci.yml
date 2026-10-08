@@ -19,6 +19,19 @@ jobs:
       - working-directory: web
         run: npm ci && npm test && npm run build
 
+  wardnote:
+    name: WardNote demo (tests + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: wardnote/package-lock.json
+      - working-directory: wardnote
+        run: npm ci && npm test && npm run build
+
   core-tests-linux:
     name: Core tests (Linux)
     runs-on: ubuntu-latest

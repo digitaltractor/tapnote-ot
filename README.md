@@ -46,6 +46,25 @@ BASE=/ npm run dev
 
 Deploys: `.github/workflows/pages.yml` publishes the prototype at `/` and the app at `/app` on every push to `main`. One-time setup: in the repo go to **Settings → Pages**, then under **Build and deployment → Source** choose **GitHub Actions**.
 
+## WardNote demo (`wardnote/`)
+
+A sample PWA for an Ontario inpatient mental health team, live at `https://tapnoteot.com/wardnote/`. It shares TapNote's stack and look but has its own on-device data.
+
+- **Codes only.** Patients are codes such as `B4-HERON`; WardNote never stores who a code belongs to. Free text is checked for names, ID numbers, phone numbers, postal codes and birth dates before a draft is saved.
+- **Mental Health Act tracking.** Record Forms 1, 3, 4, 4A, 5, 21, 24, 33 and CTOs. WardNote works out each expiry, flags the mandatory Consent and Capacity Board review (the 1st Form 4A and every 4th after it; the 2nd CTO renewal and every 2nd after it), lists the notice and rights-advice tasks, and gives the hearing deadline after a CCB application. Expiry is the period minus one day, a hospital convention to confirm locally.
+- **Discharge tracker.** EDD, ALC days, destination, main barrier, owner and the RAI-MH quarterly date, plus referrals (Coordinated Access, ACT, HSC, LTC, ODSP, OW, PGT…) with status and next step. A referral with no update in 30 days shows as stale.
+- **Notes.** Contact notes are built from taps, with Reported, Observed and Plan kept separate. There is also an SBAR family-meeting template. Drafts copy straight into Cerner. Marking a draft charted deletes its text and keeps only who, how, how long and when. Uncharted drafts are deleted after 3 days by default (OCSWSSW standard 4.1.2).
+- **Rounds board.** One line per patient, plus an after-rounds summary to paste into Cerner.
+
+It's a demo: sample data, no server, no sign-in. Real use needs hospital privacy office approval first. Research and requirements are in the WardNote research and PRD doc.
+
+```sh
+cd wardnote
+npm install
+npm test
+BASE=/ npm run dev
+```
+
 ## Native iOS app: build and run
 
 Requirements: a Mac with Xcode 16 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).

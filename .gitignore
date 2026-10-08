@@ -16,3 +16,5 @@ exports/
 # Web app
 web/node_modules/
 web/dist/
+wardnote/node_modules/
+wardnote/dist/

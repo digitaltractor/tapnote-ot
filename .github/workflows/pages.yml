@@ -1,9 +1,10 @@
 name: Pages
 
-# One Pages site, three parts:
-#   /        clickable prototype (docs/ on main)
-#   /app/    stable web app (web/ on main)
-#   /beta/   beta web app (web/ on the beta branch, separate on-device data)
+# One Pages site, four parts:
+#   /          clickable prototype (docs/ on main)
+#   /app/      stable web app (web/ on main)
+#   /beta/     beta web app (web/ on the beta branch, separate on-device data)
+#   /wardnote/ WardNote demo for an inpatient mental health team (wardnote/ on main)
 # Keep this file identical on main and beta.
 #
 # Deploys always run from main (the github-pages environment only accepts main). A push to beta
@@ -29,7 +30,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build prototype + stable + beta
+    name: Build prototype + stable + beta + WardNote
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -57,6 +58,13 @@ jobs:
           BASE: /app/
         run: npm ci && npm test && npm run build
 
+      - name: Build WardNote demo (/wardnote/)
+        if: hashFiles('stable/wardnote/package.json') != ''
+        working-directory: stable/wardnote
+        env:
+          BASE: /wardnote/
+        run: npm ci && npm test && npm run build
+
       - name: Build beta app (/beta/)
         if: steps.beta.outcome == 'success' && hashFiles('beta/web/package.json') != ''
         working-directory: beta/web
@@ -69,6 +77,7 @@ jobs:
           mkdir -p _site/app
           cp -r stable/docs/. _site/
           cp -r stable/web/dist/. _site/app/
+          if [ -d stable/wardnote/dist ]; then mkdir -p _site/wardnote && cp -r stable/wardnote/dist/. _site/wardnote/; fi
           if [ -d beta/web/dist ]; then mkdir -p _site/beta && cp -r beta/web/dist/. _site/beta/; fi
           touch _site/.nojekyll
           ls _site
