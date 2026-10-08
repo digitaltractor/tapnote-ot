@@ -5,10 +5,17 @@ name: Pages
 #   /app/    stable web app (web/ on main)
 #   /beta/   beta web app (web/ on the beta branch, separate on-device data)
 # Keep this file identical on main and beta.
+#
+# Deploys always run from main (the github-pages environment only accepts main). A push to beta
+# runs CI on beta; when that CI passes, this workflow (from main) rebuilds both apps and deploys.
 
 on:
   push:
-    branches: [main, beta]
+    branches: [main]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [beta]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +30,7 @@ concurrency:
 jobs:
   build:
     name: Build prototype + stable + beta
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Check out main
