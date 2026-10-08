@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { GoalSnapshot, SessionSnapshot } from '../core/types';
+import type { ScheduleSlot } from '../core/schedule';
 import { AuditEvent, DB, SessionRecord, StudentRecord, openTapNoteDB } from './db';
 
 /**
@@ -9,6 +10,8 @@ import { AuditEvent, DB, SessionRecord, StudentRecord, openTapNoteDB } from './d
 export class Store {
   students = new Map<string, StudentRecord>();
   sessions = new Map<string, SessionRecord>();
+  slots = new Map<string, ScheduleSlot>();
+  closures: string[] = [];
   version = 0;
   private listeners = new Set<() => void>();
 
@@ -22,9 +25,16 @@ export class Store {
   }
 
   async reload(): Promise<void> {
-    const [students, sessions] = await Promise.all([this.db.getAll('students'), this.db.getAll('sessions')]);
+    const [students, sessions, slots, closures] = await Promise.all([
+      this.db.getAll('students'),
+      this.db.getAll('sessions'),
+      this.db.getAll('schedule'),
+      this.db.get('meta', 'closures')
+    ]);
     this.students = new Map(students.map((s) => [s.code, s]));
     this.sessions = new Map(sessions.map((s) => [s.id, s]));
+    this.slots = new Map(slots.map((s) => [s.id, s]));
+    this.closures = Array.isArray(closures) ? (closures as string[]) : [];
     this.bump();
   }
 
@@ -83,6 +93,32 @@ export class Store {
     await this.db.put('sessions', next);
   }
 
+  // Schedule
+
+  slotList(): ScheduleSlot[] {
+    return [...this.slots.values()].sort((a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start));
+  }
+
+  async putSlot(slot: ScheduleSlot): Promise<void> {
+    await this.db.put('schedule', slot);
+    this.slots.set(slot.id, slot);
+    await this.audit('Schedule', slot.id, 'saved', `${slot.weekday} ${slot.start} ${slot.studentCodes.join(',')}`);
+    this.bump();
+  }
+
+  async deleteSlot(id: string): Promise<void> {
+    await this.db.delete('schedule', id);
+    this.slots.delete(id);
+    await this.audit('Schedule', id, 'deleted');
+    this.bump();
+  }
+
+  async setClosures(days: string[]): Promise<void> {
+    this.closures = [...new Set(days)].sort();
+    await this.db.put('meta', this.closures, 'closures');
+    this.bump();
+  }
+
   // Audit
 
   async audit(entity: string, entityID: string, action: string, detail = ''): Promise<void> {
@@ -96,12 +132,17 @@ export class Store {
 
   // Bulk
 
-  async replaceAll(students: StudentRecord[], sessions: SessionRecord[]): Promise<void> {
-    const tx = this.db.transaction(['students', 'sessions'], 'readwrite');
+  async replaceAll(students: StudentRecord[], sessions: SessionRecord[], slots?: ScheduleSlot[], closures?: string[]): Promise<void> {
+    const tx = this.db.transaction(['students', 'sessions', 'schedule', 'meta'], 'readwrite');
     await tx.objectStore('students').clear();
     await tx.objectStore('sessions').clear();
     for (const s of students) await tx.objectStore('students').put(s);
     for (const s of sessions) await tx.objectStore('sessions').put(s);
+    if (slots) {
+      await tx.objectStore('schedule').clear();
+      for (const s of slots) await tx.objectStore('schedule').put(s);
+    }
+    if (closures) await tx.objectStore('meta').put(closures, 'closures');
     await tx.done;
     await this.reload();
   }

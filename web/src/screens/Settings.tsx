@@ -3,7 +3,9 @@ import { DEFAULT_PROMPT_LEVELS, NOTE_FORMATS, NOTE_FORMAT_LABEL, NoteFormat, ser
 import { sbapCSV, toCSV } from '../core/csv';
 import { TimeStyle } from '../core/time';
 import { makeBackup, readBackup } from '../data/backup';
-import { setPrefs, signature, usePrefs } from '../data/prefs';
+import { setPrefs, signature, supervisorSignature, usePrefs } from '../data/prefs';
+import { hasCoSignPassphrase, setCoSignPassphrase } from '../data/cosign';
+import { SBAP_OT_KEYS, SBAP_OT_KEYS_SOURCE, sbapActivity } from '../core/sbapKeys';
 import { snapshot } from '../data/store';
 import { Vault } from '../data/vault';
 import { renderPdf } from '../export/pdf';
@@ -25,6 +27,7 @@ export function Settings() {
   const [restorePass, setRestorePass] = useState('');
   const [faceIdStep, setFaceIdStep] = useState<'idle' | 'confirm'>('idle');
   const [passChange, setPassChange] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
 
   const rangeSessions = () => {
     const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
@@ -45,7 +48,11 @@ export function Settings() {
     const csv = sbapCSV(rows.map((s) => snapshot(s, store.students.get(s.studentCode))), {
       time,
       noteText: (snap) => rows.find((r) => r.id === snap.id)?.noteText,
-      identity: includeNames ? (c) => ids[c] : undefined
+      identity: includeNames ? (c) => ids[c] : undefined,
+      signatures: (snap) => {
+        const r = rows.find((x) => x.id === snap.id);
+        return { signedBy: r?.signedAt ? r.signerName : undefined, coSignedBy: r?.coSignedAt ? r.coSignerName : undefined };
+      }
     });
     await shareFile(csv, `SBAP-log-${time.fileDate(new Date())}${includeNames ? '-identified' : ''}.csv`, 'text/csv');
   };
@@ -64,6 +71,8 @@ export function Settings() {
       const when = s.start && s.end ? ` · ${time.time(s.start)}–${time.time(s.end)}` : '';
       let text = s.noteText ?? '';
       if (s.signedAt) text += `\nSigned ${time.date(s.signedAt)} ${time.time(s.signedAt)} by ${s.signerName ?? ''}`;
+      if (s.coSignedAt) text += `\nCo-signed ${time.date(s.coSignedAt)} ${time.time(s.coSignedAt)} by ${s.coSignerName ?? ''}`;
+      else if (s.signerRole === 'COTA') text += '\nAwaiting co-signature by the supervising OT';
       for (const a of s.addenda) text += `\nAddendum ${time.date(a.date)} ${time.time(a.date)} (${a.author}): ${a.text}`;
       return { heading: `${who} · ${time.date(s.date)}${when} · ${serviceType(snap)}`, text };
     });
@@ -72,7 +81,7 @@ export function Settings() {
   };
 
   const exportBackup = async () => {
-    const file = await makeBackup(store.studentList(), store.sessionList(), backupPass);
+    const file = await makeBackup(store.studentList(), store.sessionList(), backupPass, { schedule: store.slotList(), closures: store.closures });
     setBackupPass('');
     setBackupPass2('');
     await store.audit('Backup', 'export', 'exported');
@@ -91,7 +100,7 @@ export function Settings() {
     try {
       const data = await readBackup(restoreFile, restorePass);
       if (!confirm(`Replace all data on this device with ${data.students.length} students and ${data.sessions.length} sessions from ${time.date(data.createdAt)}?`)) return;
-      await store.replaceAll(data.students, data.sessions);
+      await store.replaceAll(data.students, data.sessions, data.schedule, data.closures);
       await store.audit('Backup', 'restore', 'restored', `${data.students.length} students, ${data.sessions.length} sessions`);
       setRestoreFile(null);
       setRestorePass('');
@@ -167,6 +176,8 @@ export function Settings() {
         <div class="tiny muted">Notes are signed as {signature(prefs)}.</div>
       </section>
 
+      <RoleSection />
+
       <section class="card stack-sm">
         <h2>Prompt levels</h2>
         <div class="tiny muted">Least to most assistance. Rename or turn off levels you don't use.</div>
@@ -183,7 +194,8 @@ export function Settings() {
 
       <section class="card stack-sm">
         <h2>Activities</h2>
-        <div class="tiny muted">Add the numbered treatment keys from the PA SBAP OT Service Provider Log so exported logs carry them.</div>
+        <div class="tiny muted">These are your quick-tap activities. The full SBAP list is always one tap away during a session.</div>
+        <button class="btn outline block" onClick={() => setBrowsing(true)}>Choose from the SBAP list ({SBAP_OT_KEYS.length})</button>
         {prefs.activityCatalog.map((a, i) => (
           <div class="row">
             <span class="spacer">{a.name}</span>
@@ -256,6 +268,7 @@ export function Settings() {
         </Sheet>
       )}
       {passChange && <ChangePassphrase onClose={() => setPassChange(false)} />}
+      {browsing && <SbapBrowser onClose={() => setBrowsing(false)} />}
     </div>
   );
 }
@@ -285,5 +298,94 @@ function ChangePassphrase({ onClose }: { onClose: () => void }) {
         <button class="btn primary block" disabled={!oldPass || p1.length < 8 || p1 !== p2} onClick={save}>Change</button>
       </div>
     </Sheet>
+  );
+}
+
+/** Beta: the SBAP OT treatment-key list; checked keys become quick-tap activities. */
+export function SbapBrowser({ onClose, onPick, title = 'SBAP activity list' }: { onClose: () => void; onPick?: (key: number) => void; title?: string }) {
+  const prefs = usePrefs();
+  const [q, setQ] = useState('');
+  const inCatalog = new Set(prefs.activityCatalog.map((a) => a.sbapKey).filter((k): k is number => k != null));
+  const shown = SBAP_OT_KEYS.filter((k) => !q.trim() || `${k.key} ${k.category} ${k.label}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const categories = [...new Set(shown.map((k) => k.category))];
+
+  const toggle = (key: number) => {
+    if (onPick) return onPick(key);
+    if (inCatalog.has(key)) setPrefs({ activityCatalog: prefs.activityCatalog.filter((a) => a.sbapKey !== key) });
+    else {
+      const a = sbapActivity(key);
+      if (a) setPrefs({ activityCatalog: [...prefs.activityCatalog, a] });
+    }
+  };
+
+  return (
+    <Sheet title={title} onClose={onClose}>
+      <div class="stack-sm">
+        <input class="input" type="search" placeholder="Search by number or name" aria-label="Search activities" value={q} onInput={(e) => setQ(val(e))} />
+        <div class="tiny muted">{SBAP_OT_KEYS_SOURCE}</div>
+        {categories.map((c) => (
+          <div class="stack-sm" style="margin-top:6px">
+            <div class="label">{c}</div>
+            {shown.filter((k) => k.category === c).map((k) => (
+              onPick
+                ? <button type="button" class="list-item" style="min-height:48px" onClick={() => toggle(k.key)}><span class="mono" style="width:32px">{k.key}</span><span class="grow">{k.label}</span></button>
+                : <label class="check"><input type="checkbox" checked={inCatalog.has(k.key)} onChange={() => toggle(k.key)} /><span class="mono" style="width:28px">{k.key}</span> {k.label}</label>
+            ))}
+          </div>
+        ))}
+        {shown.length === 0 && <div class="muted small">No match.</div>}
+      </div>
+    </Sheet>
+  );
+}
+
+/** Beta: OT or COTA role; for a COTA, the supervising OT and her co-sign passphrase. */
+function RoleSection() {
+  const { store, toast } = useApp();
+  const prefs = usePrefs();
+  const [hasPass, setHasPass] = useState<boolean | null>(null);
+  const [p1, setP1] = useState('');
+  const [p2, setP2] = useState('');
+  if (hasPass === null) hasCoSignPassphrase(store.db).then(setHasPass);
+
+  const savePass = async () => {
+    await setCoSignPassphrase(store.db, p1);
+    setP1('');
+    setP2('');
+    setHasPass(true);
+    await store.audit('CoSign', 'passphrase', 'set');
+    toast('Co-sign passphrase saved.');
+  };
+
+  return (
+    <section class="card stack">
+      <h2>Role and supervision <span class="badge warn" style="margin-left:6px">Beta</span></h2>
+      <div class="seg" role="radiogroup" aria-label="Role">
+        {(['OT', 'COTA'] as const).map((r) => (
+          <button type="button" role="radio" aria-checked={prefs.role === r} class={`chip square ${prefs.role === r ? 'on' : ''}`}
+            onClick={() => setPrefs({ role: r, credentials: r === 'COTA' && prefs.credentials === 'OTR/L' ? 'COTA/L' : r === 'OT' && prefs.credentials === 'COTA/L' ? 'OTR/L' : prefs.credentials })}>
+            {r === 'OT' ? 'Occupational therapist' : 'OT assistant (COTA)'}
+          </button>
+        ))}
+      </div>
+      {prefs.role === 'COTA' && (
+        <>
+          <div class="tiny muted">Notes you sign are marked “needs co-sign” until your supervising OT co-signs them with her own passphrase. PA requires the supervisor's signature on COTA service logs.</div>
+          <div class="grid2">
+            <Field label="Supervising OT" id="sup"><input id="sup" class="input" value={prefs.supervisorName} onInput={(e) => setPrefs({ supervisorName: val(e) })} /></Field>
+            <Field label="Credentials" id="supcr"><input id="supcr" class="input" value={prefs.supervisorCredentials} onInput={(e) => setPrefs({ supervisorCredentials: val(e) })} /></Field>
+          </div>
+          <div class="stack-sm">
+            <div class="label">Supervisor's co-sign passphrase {hasPass ? '(set)' : '(not set)'}</div>
+            <div class="tiny muted">Hand the device to {supervisorSignature(prefs)} to {hasPass ? 'change' : 'set'} it. It's stored only as a verifier, never as text.</div>
+            <div class="grid2">
+              <input class="input" type="password" autocomplete="off" aria-label="New co-sign passphrase" placeholder="New passphrase (8+)" value={p1} onInput={(e) => setP1(val(e))} />
+              <input class="input" type="password" autocomplete="off" aria-label="Repeat co-sign passphrase" placeholder="Repeat" value={p2} onInput={(e) => setP2(val(e))} />
+            </div>
+            <button class="btn block" disabled={p1.length < 8 || p1 !== p2} onClick={savePass}>{hasPass ? 'Change' : 'Set'} co-sign passphrase</button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

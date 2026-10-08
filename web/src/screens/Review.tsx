@@ -6,7 +6,8 @@ import { scrubNames } from '../core/pseudonym';
 import { TimeStyle } from '../core/time';
 import type { SessionRecord } from '../data/db';
 import { isInProgress, snapshot } from '../data/store';
-import { signature, usePrefs } from '../data/prefs';
+import { signature, supervisorSignature, usePrefs } from '../data/prefs';
+import { hasCoSignPassphrase, verifyCoSignPassphrase } from '../data/cosign';
 import { Badge, BackButton, Sheet, fromDateInput, sameDay, toDateInput, useApp, val } from '../ui/components';
 
 const time = new TimeStyle();
@@ -28,7 +29,7 @@ export function Review() {
     const now = new Date();
     const next = ready.map((s) => {
       const draft = s.noteText ?? plainText(composeNote(snapshot(s, store.students.get(s.studentCode)), s.noteFormat ?? prefs.noteFormat, time));
-      return { ...s, noteText: scrubNames(draft, names).text, noteFormat: s.noteFormat ?? prefs.noteFormat, signedAt: now, signerName: signature(prefs) };
+      return { ...s, noteText: scrubNames(draft, names).text, noteFormat: s.noteFormat ?? prefs.noteFormat, signedAt: now, signerName: signature(prefs), signerRole: prefs.role };
     });
     await store.putSessions(next, 'signed and locked', `by ${signature(prefs)}`);
     toast(`Signed ${next.length} notes.`);
@@ -64,7 +65,8 @@ export function Review() {
                   <span class="mono">{s.start ? time.time(s.start) : '—'} · {s.studentCode}</span>
                   <span class="small muted">{sub}</span>
                 </div>
-                {s.signedAt ? <Badge kind="ok">Signed</Badge>
+                {s.signedAt && s.signerRole === 'COTA' && !s.coSignedAt ? <Badge kind="warn">Needs co-sign</Badge>
+                  : s.signedAt ? <Badge kind="ok">Signed</Badge>
                   : isInProgress(s) ? <Badge>In progress</Badge>
                   : blocking ? <Badge kind="warn">{blocking.message.length > 22 ? 'Needs fixes' : blocking.message}</Badge>
                   : <Badge>Ready</Badge>}
@@ -84,6 +86,7 @@ export function NoteDetail({ sessionId }: { sessionId: string }) {
   const [format, setFormat] = useState<NoteFormat>(s?.noteFormat ?? prefs.noteFormat);
   const [draft, setDraft] = useState('');
   const [addendum, setAddendum] = useState<string | null>(null);
+  const [coSigning, setCoSigning] = useState(false);
 
   const student = s ? store.students.get(s.studentCode) : undefined;
   const snap = s ? snapshot(s, student) : undefined;
@@ -112,7 +115,7 @@ export function NoteDetail({ sessionId }: { sessionId: string }) {
     const ok = await authenticate('Sign this note');
     if (!ok) return;
     const text = scrubNames(draft, vault.namesForScrubbing()).text;
-    await store.putSessions([{ ...s, noteText: text, noteFormat: format, signedAt: new Date(), signerName: signature(prefs) }], 'signed and locked', `by ${signature(prefs)}`);
+    await store.putSessions([{ ...s, noteText: text, noteFormat: format, signedAt: new Date(), signerName: signature(prefs), signerRole: prefs.role }], 'signed and locked', `by ${signature(prefs)}`);
     toast('Signed and locked.');
   };
 
@@ -158,6 +161,11 @@ export function NoteDetail({ sessionId }: { sessionId: string }) {
               ))}
             </section>
           )}
+          {s.signerRole === 'COTA' && (
+            s.coSignedAt
+              ? <div class="card small">Co-signed {time.date(s.coSignedAt)} {time.time(s.coSignedAt)} by {s.coSignerName}.</div>
+              : <button class="btn primary block" onClick={() => setCoSigning(true)}>Co-sign as supervising OT</button>
+          )}
           <button class="btn outline block" onClick={() => setAddendum('')}>Add addendum</button>
         </>
       ) : (
@@ -189,6 +197,7 @@ export function NoteDetail({ sessionId }: { sessionId: string }) {
         </>
       )}
 
+      {coSigning && <CoSignSheet session={s} onClose={() => setCoSigning(false)} />}
       {addendum !== null && (
         <Sheet title="Addendum" onClose={() => setAddendum(null)}>
           <div class="stack">
@@ -198,5 +207,45 @@ export function NoteDetail({ sessionId }: { sessionId: string }) {
         </Sheet>
       )}
     </div>
+  );
+}
+
+/** Beta: the supervising OT co-signs a COTA's signed note with her own co-sign passphrase. */
+function CoSignSheet({ session, onClose }: { session: SessionRecord; onClose: () => void }) {
+  const { store, toast } = useApp();
+  const prefs = usePrefs();
+  const [pass, setPass] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: Event) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    if (!(await hasCoSignPassphrase(store.db))) {
+      setError('The supervising OT needs to set a co-sign passphrase in Settings first.');
+      setBusy(false);
+      return;
+    }
+    if (!(await verifyCoSignPassphrase(store.db, pass))) {
+      setError('That co-sign passphrase didn’t match.');
+      setBusy(false);
+      return;
+    }
+    const by = supervisorSignature(prefs);
+    await store.putSessions([{ ...session, coSignedAt: new Date(), coSignerName: by }], 'co-signed', `by ${by}`);
+    toast('Co-signed.');
+    onClose();
+  };
+
+  return (
+    <Sheet title="Co-sign note" onClose={onClose}>
+      <form class="stack" onSubmit={submit}>
+        <p class="muted" style="margin:0">Co-signing as {supervisorSignature(prefs)}. The note text doesn't change; the co-signature is added to the record and exports.</p>
+        <input class="input" type="password" autocomplete="off" aria-label="Supervisor co-sign passphrase" placeholder="Supervisor co-sign passphrase" value={pass} onInput={(e) => setPass(val(e))} />
+        {error && <div class="issue blocking" role="alert">{error}</div>}
+        <button class="btn primary block" type="submit" disabled={!pass || busy}>{busy ? 'Checking…' : 'Co-sign'}</button>
+      </form>
+    </Sheet>
   );
 }

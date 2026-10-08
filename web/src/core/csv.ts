@@ -20,10 +20,17 @@ export function toCSV(rows: string[][]): string {
 /** CSV shaped like the PA SBAP OT Service Provider Log. Mirrors SBAPExport.swift. */
 export function sbapCSV(
   sessions: SessionSnapshot[],
-  opts: { time?: TimeStyle; noteText?: (s: SessionSnapshot) => string | undefined; identity?: (code: string) => StudentIdentity | undefined } = {}
+  opts: {
+    time?: TimeStyle;
+    noteText?: (s: SessionSnapshot) => string | undefined;
+    identity?: (code: string) => StudentIdentity | undefined;
+    /** When given, adds "Signed By" and "Co-signed By" columns (SBAP needs the supervisor for COTA services). */
+    signatures?: (s: SessionSnapshot) => { signedBy?: string; coSignedBy?: string };
+  } = {}
 ): string {
   const time = opts.time ?? new TimeStyle();
-  const rows: string[][] = [opts.identity ? IDENTIFIED_HEADER : PSEUDONYMOUS_HEADER];
+  const header = opts.identity ? IDENTIFIED_HEADER : PSEUDONYMOUS_HEADER;
+  const rows: string[][] = [opts.signatures ? [...header, 'Signed By', 'Co-signed By'] : header];
   const key = (s: SessionSnapshot) => (s.start ?? s.date).getTime();
   const ordered = [...sessions].sort((a, b) => key(a) - key(b) || a.studentCode.localeCompare(b.studentCode));
   for (const s of ordered) {
@@ -43,6 +50,10 @@ export function sbapCSV(
     if (opts.identity) {
       const id = opts.identity(s.studentCode);
       row = [id?.realName ?? '', id?.dateOfBirth ?? '', id?.paSecureID ?? '', ...row];
+    }
+    if (opts.signatures) {
+      const sig = opts.signatures(s);
+      row = [...row, sig.signedBy ?? '', sig.coSignedBy ?? ''];
     }
     rows.push(row);
   }

@@ -1,6 +1,7 @@
 import type { Activity, GoalObservation } from '../core/types';
 import { ATTENDANCE, DELIVERY, NOTE_FORMATS, PROGRESS_INDICATORS, REGULATION_STATES } from '../core/types';
 import type { SessionRecord, StudentRecord } from './db';
+import type { ScheduleSlot } from '../core/schedule';
 import { dec, enc, pbkdf2Key, randomBytes } from './crypto';
 
 /**
@@ -27,6 +28,8 @@ interface SessionDTO {
   regulationRaw?: string; progressRaw?: string; engagement?: number; comment: string;
   noteText?: string; noteFormatRaw?: string; signerName?: string; signedAt?: string;
   addenda: { date: string; author: string; text: string }[];
+  // v2 (web beta); ignored by older readers and the iOS app
+  slotId?: string; makeUpFor?: string[]; signerRole?: string; coSignedAt?: string; coSignerName?: string;
 }
 
 interface Payload {
@@ -34,6 +37,8 @@ interface Payload {
   createdAt: string;
   students: StudentDTO[];
   sessions: SessionDTO[];
+  schedule?: ScheduleSlot[];
+  closures?: string[];
 }
 
 /** ISO-8601 without milliseconds, which Swift's .iso8601 strategy requires. */
@@ -49,9 +54,16 @@ function oneOfOpt<T extends string>(list: readonly T[], v: unknown): T | undefin
   return list.includes(v as T) ? (v as T) : undefined;
 }
 
-export async function makeBackup(students: StudentRecord[], sessions: SessionRecord[], passphrase: string): Promise<Uint8Array<ArrayBuffer>> {
+export async function makeBackup(
+  students: StudentRecord[],
+  sessions: SessionRecord[],
+  passphrase: string,
+  extra: { schedule?: ScheduleSlot[]; closures?: string[] } = {}
+): Promise<Uint8Array<ArrayBuffer>> {
   const payload: Payload = {
-    version: 1,
+    version: 2,
+    schedule: extra.schedule,
+    closures: extra.closures,
     createdAt: iso(new Date()),
     students: students.map((s) => ({
       code: s.code, alias: s.alias, gradeBand: s.gradeBand, serviceMode: s.serviceMode, reportCadence: s.reportCadence,
@@ -65,7 +77,8 @@ export async function makeBackup(students: StudentRecord[], sessions: SessionRec
       activities: r.activities, observations: r.observations,
       regulationRaw: r.regulation, progressRaw: r.progress, engagement: r.engagement, comment: r.comment,
       noteText: r.noteText, noteFormatRaw: r.noteFormat, signerName: r.signerName, signedAt: isoOpt(r.signedAt),
-      addenda: r.addenda.map((a) => ({ date: iso(a.date), author: a.author, text: a.text }))
+      addenda: r.addenda.map((a) => ({ date: iso(a.date), author: a.author, text: a.text })),
+      slotId: r.slotId, makeUpFor: r.makeUpFor, signerRole: r.signerRole, coSignedAt: isoOpt(r.coSignedAt), coSignerName: r.coSignerName
     }))
   };
   const plain = enc.encode(JSON.stringify(payload));
@@ -82,7 +95,10 @@ export async function makeBackup(students: StudentRecord[], sessions: SessionRec
   return out;
 }
 
-export async function readBackup(file: Uint8Array<ArrayBuffer>, passphrase: string): Promise<{ students: StudentRecord[]; sessions: SessionRecord[]; createdAt: Date }> {
+export async function readBackup(
+  file: Uint8Array<ArrayBuffer>,
+  passphrase: string
+): Promise<{ students: StudentRecord[]; sessions: SessionRecord[]; createdAt: Date; schedule?: ScheduleSlot[]; closures?: string[] }> {
   if (file.length <= 36 + 16 || MAGIC.some((b, i) => file[i] !== b)) throw new Error('This isn’t a TapNote backup file.');
   const salt = file.slice(4, 20);
   const iterations = new DataView(file.buffer, file.byteOffset).getUint32(20, false);
@@ -116,7 +132,18 @@ export async function readBackup(file: Uint8Array<ArrayBuffer>, passphrase: stri
     noteFormat: oneOfOpt(NOTE_FORMATS, r.noteFormatRaw),
     signerName: r.signerName ?? undefined,
     signedAt: dateOpt(r.signedAt),
-    addenda: (r.addenda ?? []).map((a) => ({ date: date(a.date), author: a.author, text: a.text }))
+    addenda: (r.addenda ?? []).map((a) => ({ date: date(a.date), author: a.author, text: a.text })),
+    slotId: r.slotId ?? undefined,
+    makeUpFor: Array.isArray(r.makeUpFor) ? r.makeUpFor : undefined,
+    signerRole: r.signerRole === 'COTA' ? 'COTA' : r.signerRole === 'OT' ? 'OT' : undefined,
+    coSignedAt: dateOpt(r.coSignedAt),
+    coSignerName: r.coSignerName ?? undefined
   }));
-  return { students, sessions, createdAt: date(p.createdAt) };
+  return {
+    students,
+    sessions,
+    createdAt: date(p.createdAt),
+    schedule: Array.isArray(p.schedule) ? p.schedule : undefined,
+    closures: Array.isArray(p.closures) ? p.closures : undefined
+  };
 }

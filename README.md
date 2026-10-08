@@ -46,6 +46,18 @@ BASE=/ npm run dev
 
 Deploys: `.github/workflows/pages.yml` publishes the prototype at `/` and the app at `/app` on every push to `main`. One-time setup: in the repo go to **Settings → Pages**, then under **Build and deployment → Source** choose **GitHub Actions**.
 
+## Beta channel
+
+New features land on the `beta` branch first and are published at `https://tapnoteot.com/beta/`. The stable app at `/app/` is unaffected. Beta keeps its own on-device data (a separate database and vault); to try it with real data, export a backup from the stable app and restore it in beta.
+
+**Beta 1 (web):**
+- **Weekly caseload schedule.** Recurring weekday slots, individual or group, pre-fill Today with one-tap Start or Absent/missed. A "No school today" switch is included, and slots unlogged in the last 2 weeks are flagged.
+- **Missed-minutes tracker** (Reports → Minutes). IEP minutes are compared with delivered minutes by week. Therapist-side misses count as owed; "student not available" counting is a setting. Make-ups are linked to the sessions they cover. Exports to CSV.
+- **COTA co-sign.** Set the role to COTA in Settings. Signed notes show "Needs co-sign" until the supervising OT co-signs with her own passphrase. Co-signers appear in the SBAP CSV and notes PDF.
+- **Full SBAP activity list.** All 53 treatment keys can be picked in session (More…) or added to quick-tap favorites. The list is transcribed from the 09/2023 form; verify against the current revision.
+
+Promote to stable by merging `beta` into `main`. Port settled features to the SwiftUI app afterwards.
+
 ## Native iOS app: build and run
 
 Requirements: a Mac with Xcode 16 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).

@@ -221,3 +221,15 @@ textarea.input { min-height: 220px; line-height: 1.45; resize: vertical; }
 .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
 .vault-name { margin-top: 4px; padding: 6px 10px; border-radius: 8px; background: var(--tint); font-size: 14px; }
 .welcome { max-width: 520px; margin: 0 auto; }
+
+/* Beta channel */
+.beta-banner {
+  padding: calc(env(safe-area-inset-top) + 4px) 16px 4px;
+  background: var(--amber-bg); color: var(--amber);
+  font-size: 12px; font-weight: 700; text-align: center; letter-spacing: 0.02em;
+}
+.beta-banner + .main { padding-top: 12px; }
+.beta-banner + .main .topbar { margin-top: -12px; padding-top: 10px; }
+.meter { height: 10px; border-radius: 5px; background: var(--grey); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--acc); }
+.meter.short > span { background: var(--amber); }

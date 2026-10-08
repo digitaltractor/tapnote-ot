@@ -6,11 +6,26 @@ import { goalSnapshots, snapshot } from '../data/store';
 import { signature, usePrefs } from '../data/prefs';
 import { renderPdf } from '../export/pdf';
 import { Badge, fromDateInput, shareFile, toDateInput, useApp, val } from '../ui/components';
+import { MinutesView } from './Minutes';
 
 const time = new TimeStyle();
 const PERIODS: ReportPeriod[] = ['month', 'quarter', 'year', 'custom'];
 
-export function Reports() {
+export function Reports({ tab = 'progress' }: { tab?: 'progress' | 'minutes' }) {
+  if (tab === 'minutes') return <MinutesView />;
+  return <ProgressView />;
+}
+
+export function ReportTabs({ tab }: { tab: 'progress' | 'minutes' }) {
+  return (
+    <div class="seg" role="tablist" aria-label="Report type">
+      <a role="tab" aria-selected={tab === 'progress'} class={`chip square ${tab === 'progress' ? 'on' : ''}`} style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="#/reports">Progress</a>
+      <a role="tab" aria-selected={tab === 'minutes'} class={`chip square ${tab === 'minutes' ? 'on' : ''}`} style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="#/reports/minutes">Minutes</a>
+    </div>
+  );
+}
+
+function ProgressView() {
   const { store, authenticate, vault, toast } = useApp();
   const prefs = usePrefs();
   const students = store.studentList().filter((s) => s.isActive);
@@ -58,7 +73,8 @@ export function Reports() {
   if (!student) {
     return (
       <div class="stack">
-        <h1>Progress report</h1>
+        <h1>Reports</h1>
+        <ReportTabs tab="progress" />
         <div class="empty">Add students and goals on the Students tab first.</div>
       </div>
     );
@@ -66,7 +82,8 @@ export function Reports() {
 
   return (
     <div class="stack">
-      <h1>Progress report</h1>
+      <h1>Reports</h1>
+      <ReportTabs tab="progress" />
       <div class="field">
         <label for="r-student">Student</label>
         <select id="r-student" class="input mono" value={student.code} onChange={(e) => setCode(val(e))}>

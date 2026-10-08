@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Served from GitHub Pages at https://tapnoteot.com/app/ (custom domain; see docs/CNAME)
 // Override with BASE=/ for local preview.
 const base = process.env.BASE ?? '/app/';
+const beta = base.includes('/beta');
 
 export default defineConfig({
   base,
@@ -14,15 +15,15 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/apple-touch-icon.png', 'icons/favicon.png'],
       manifest: {
-        name: 'TapNote OT',
-        short_name: 'TapNote',
+        name: beta ? 'TapNote OT Beta' : 'TapNote OT',
+        short_name: beta ? 'TapNote β' : 'TapNote',
         description: 'Quick session capture, end-of-day notes and progress reports for school-based OT.',
         start_url: base,
         scope: base,
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#F4F5F1',
-        theme_color: '#1F6B66',
+        theme_color: beta ? '#8F4C10' : '#1F6B66',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

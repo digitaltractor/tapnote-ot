@@ -1,7 +1,9 @@
 import { DBSchema, IDBPDatabase, openDB } from 'idb';
+import { DB_NAME } from '../env';
 import type {
   Activity, Attendance, Delivery, GoalObservation, NoteFormat, ProgressIndicator, RegulationState
 } from '../core/types';
+import type { ScheduleSlot } from '../core/schedule';
 
 // Only pseudonymous data is stored in plain IndexedDB. Real identities live in the
 // encrypted vault blob (see vault.ts) and are decrypted in memory only while unlocked.
@@ -56,6 +58,15 @@ export interface SessionRecord {
   signedAt?: Date;
   signerName?: string;
   addenda: Addendum[];
+  // Beta (v2) fields
+  /** Schedule slot this session came from, when started or logged from Today's plan. */
+  slotId?: string;
+  /** Missed sessions this make-up covers. */
+  makeUpFor?: string[];
+  /** 'COTA' notes need a supervising OT's co-signature. */
+  signerRole?: 'OT' | 'COTA';
+  coSignedAt?: Date;
+  coSignerName?: string;
 }
 
 export interface AuditEvent {
@@ -72,19 +83,25 @@ interface TapNoteDB extends DBSchema {
   sessions: { key: string; value: SessionRecord; indexes: { byGroup: string; byDate: Date } };
   audit: { key: number; value: AuditEvent };
   meta: { key: string; value: unknown };
+  schedule: { key: string; value: ScheduleSlot };
 }
 
 export type DB = IDBPDatabase<TapNoteDB>;
 
-export async function openTapNoteDB(name = 'tapnote'): Promise<DB> {
-  return openDB<TapNoteDB>(name, 1, {
-    upgrade(db) {
-      db.createObjectStore('students', { keyPath: 'code' });
-      const sessions = db.createObjectStore('sessions', { keyPath: 'id' });
-      sessions.createIndex('byGroup', 'groupKey');
-      sessions.createIndex('byDate', 'date');
-      db.createObjectStore('audit', { keyPath: 'id', autoIncrement: true });
-      db.createObjectStore('meta');
+export async function openTapNoteDB(name = DB_NAME): Promise<DB> {
+  return openDB<TapNoteDB>(name, 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        db.createObjectStore('students', { keyPath: 'code' });
+        const sessions = db.createObjectStore('sessions', { keyPath: 'id' });
+        sessions.createIndex('byGroup', 'groupKey');
+        sessions.createIndex('byDate', 'date');
+        db.createObjectStore('audit', { keyPath: 'id', autoIncrement: true });
+        db.createObjectStore('meta');
+      }
+      if (oldVersion < 2) {
+        db.createObjectStore('schedule', { keyPath: 'id' });
+      }
     }
   });
 }

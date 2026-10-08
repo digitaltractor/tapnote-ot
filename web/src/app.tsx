@@ -10,6 +10,8 @@ import { Review, NoteDetail } from './screens/Review';
 import { Reports } from './screens/Reports';
 import { Students, StudentEditor } from './screens/Students';
 import { Settings } from './screens/Settings';
+import { Schedule } from './screens/Schedule';
+import { IS_BETA } from './env';
 
 interface AuthRequest {
   reason: string;
@@ -61,16 +63,18 @@ export function App({ store, vault }: { store: Store; vault: Vault }) {
   switch (head) {
     case 'session': screen = <Capture groupKey={arg} />; break;
     case 'review': screen = arg ? <NoteDetail sessionId={arg} /> : <Review />; break;
-    case 'reports': screen = <Reports />; break;
+    case 'reports': screen = <Reports tab={arg === 'minutes' ? 'minutes' : 'progress'} />; break;
+    case 'schedule': screen = <Schedule />; break;
     case 'students': screen = arg ? <StudentEditor code={arg === 'new' ? undefined : arg} /> : <Students />; break;
     case 'settings': screen = <Settings />; break;
     default: screen = <Today />;
   }
-  const tab = head === 'session' ? 'today' : head;
+  const tab = head === 'session' || head === 'schedule' ? 'today' : head;
 
   return (
     <Ctx.Provider value={ctx}>
       <div class="app">
+        {IS_BETA && <div class="beta-banner" role="note">Beta · separate data from the main app</div>}
         <main class="main" id="main">{screen}</main>
         <nav class="tabbar" aria-label="Main">
           {([

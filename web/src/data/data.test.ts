@@ -80,3 +80,33 @@ describe('backup', () => {
     expect(plain).not.toMatch(/\.\d{3}Z/);
   });
 });
+
+describe('beta data', () => {
+  it('upgrades to v2 with a schedule store and keeps slots across reopen', async () => {
+    const st = await Store.open('t-sched');
+    await st.putSlot({ id: 'sl1', weekday: 3, start: '09:15', minutes: 30, studentCodes: ['K7-OTTER'], active: true });
+    await st.setClosures(['2026-11-26', '2026-11-26']);
+    const again = await Store.open('t-sched');
+    expect(again.slotList().map((s) => s.id)).toEqual(['sl1']);
+    expect(again.closures).toEqual(['2026-11-26']);
+  });
+  it('round-trips schedule, closures and co-sign fields in backups', async () => {
+    const s2: SessionRecord = { ...session, slotId: 'sl1', makeUpFor: ['X'], signerRole: 'COTA', coSignedAt: new Date('2026-10-08T12:00:00Z'), coSignerName: 'Sup, OTR/L' };
+    const slot = { id: 'sl1', weekday: 3, start: '09:15', minutes: 30, studentCodes: ['K7-OTTER'], active: true };
+    const file = await makeBackup([student], [s2], 'pp', { schedule: [slot], closures: ['2026-11-26'] });
+    const back = await readBackup(file, 'pp');
+    expect(back.schedule).toEqual([slot]);
+    expect(back.closures).toEqual(['2026-11-26']);
+    expect(back.sessions[0].signerRole).toBe('COTA');
+    expect(back.sessions[0].coSignedAt?.toISOString()).toBe('2026-10-08T12:00:00.000Z');
+    expect(back.sessions[0].makeUpFor).toEqual(['X']);
+  });
+  it('verifies the supervisor co-sign passphrase', async () => {
+    const { setCoSignPassphrase, verifyCoSignPassphrase, hasCoSignPassphrase } = await import('./cosign');
+    const st = await Store.open('t-cosign');
+    expect(await hasCoSignPassphrase(st.db)).toBe(false);
+    await setCoSignPassphrase(st.db, 'supervisor-pass');
+    expect(await verifyCoSignPassphrase(st.db, 'supervisor-pass')).toBe(true);
+    expect(await verifyCoSignPassphrase(st.db, 'wrong')).toBe(false);
+  });
+});

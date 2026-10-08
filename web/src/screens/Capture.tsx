@@ -9,6 +9,8 @@ import type { GoalObservation } from '../core/types';
 import type { SessionRecord } from '../data/db';
 import { enabledPromptLevels, usePrefs } from '../data/prefs';
 import { BackButton, Chip, Sheet, go, toTimeInput, useApp, val, withTime } from '../ui/components';
+import { SbapBrowser } from './Settings';
+import { sbapActivity } from '../core/sbapKeys';
 
 const time = new TimeStyle();
 const REG_FILL: Record<string, string> = { Low: 'var(--reg-low)', Calm: 'var(--reg-calm)', Heightened: 'var(--reg-heightened)', High: 'var(--reg-high)' };
@@ -19,6 +21,7 @@ export function Capture({ groupKey }: { groupKey: string }) {
   const sessions = store.group(groupKey);
   const [code, setCode] = useState<string | undefined>(sessions[0]?.studentCode);
   const [details, setDetails] = useState(false);
+  const [more, setMore] = useState(false);
   const current = sessions.find((s) => s.studentCode === code) ?? sessions[0];
 
   // Scrub names from comments when leaving the screen or switching student.
@@ -93,11 +96,12 @@ export function Capture({ groupKey }: { groupKey: string }) {
           <section class="stack-sm">
             <h2 class="section-title">Activities</h2>
             <div class="row-wrap">
-              {prefs.activityCatalog.map((a) => (
+              {[...prefs.activityCatalog, ...current.activities.filter((a) => !prefs.activityCatalog.some((c) => c.id === a.id))].map((a) => (
                 <Chip on={current.activities.some((x) => x.id === a.id)} onClick={() => update((s) => {
                   s.activities = s.activities.some((x) => x.id === a.id) ? s.activities.filter((x) => x.id !== a.id) : [...s.activities, a];
                 })}>{a.name}</Chip>
               ))}
+              <Chip on={false} onClick={() => setMore(true)} label="More activities from the SBAP list">More…</Chip>
             </div>
           </section>
 
@@ -182,6 +186,13 @@ export function Capture({ groupKey }: { groupKey: string }) {
       </div>
 
       {details && <DetailsSheet sessions={sessions} onClose={() => setDetails(false)} />}
+      {more && (
+        <SbapBrowser title="Add an activity" onClose={() => setMore(false)} onPick={(key) => {
+          const a = sbapActivity(key);
+          if (a) update((s) => { if (!s.activities.some((x) => x.id === a.id)) s.activities = [...s.activities, a]; });
+          setMore(false);
+        }} />
+      )}
     </div>
   );
 }
