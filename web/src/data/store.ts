@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { GoalSnapshot, SessionSnapshot } from '../core/types';
 import type { ScheduleSlot } from '../core/schedule';
+import type { LogEntry } from '../core/contacts';
 import { AuditEvent, DB, SessionRecord, StudentRecord, openTapNoteDB } from './db';
 
 /**
@@ -11,6 +12,7 @@ export class Store {
   students = new Map<string, StudentRecord>();
   sessions = new Map<string, SessionRecord>();
   slots = new Map<string, ScheduleSlot>();
+  contacts = new Map<string, LogEntry>();
   closures: string[] = [];
   version = 0;
   private listeners = new Set<() => void>();
@@ -25,12 +27,14 @@ export class Store {
   }
 
   async reload(): Promise<void> {
-    const [students, sessions, slots, closures] = await Promise.all([
+    const [students, sessions, slots, closures, contacts] = await Promise.all([
       this.db.getAll('students'),
       this.db.getAll('sessions'),
       this.db.getAll('schedule'),
-      this.db.get('meta', 'closures')
+      this.db.get('meta', 'closures'),
+      this.db.getAll('contacts')
     ]);
+    this.contacts = new Map(contacts.map((c) => [c.id, c]));
     this.students = new Map(students.map((s) => [s.code, s]));
     this.sessions = new Map(sessions.map((s) => [s.id, s]));
     this.slots = new Map(slots.map((s) => [s.id, s]));
@@ -119,6 +123,26 @@ export class Store {
     this.bump();
   }
 
+  // Contact and supervision logs (beta 2)
+
+  contactList(kind?: LogEntry['kind']): LogEntry[] {
+    return [...this.contacts.values()].filter((c) => !kind || c.kind === kind).sort((a, b) => b.date.getTime() - a.date.getTime());
+  }
+
+  async putContact(c: LogEntry, action = 'saved'): Promise<void> {
+    await this.db.put('contacts', c);
+    this.contacts.set(c.id, c);
+    await this.audit('Log', c.id, action, `${c.kind} ${c.studentCodes.join(',')}`);
+    this.bump();
+  }
+
+  async deleteContact(id: string): Promise<void> {
+    await this.db.delete('contacts', id);
+    this.contacts.delete(id);
+    await this.audit('Log', id, 'deleted');
+    this.bump();
+  }
+
   // Audit
 
   async audit(entity: string, entityID: string, action: string, detail = ''): Promise<void> {
@@ -132,8 +156,8 @@ export class Store {
 
   // Bulk
 
-  async replaceAll(students: StudentRecord[], sessions: SessionRecord[], slots?: ScheduleSlot[], closures?: string[]): Promise<void> {
-    const tx = this.db.transaction(['students', 'sessions', 'schedule', 'meta'], 'readwrite');
+  async replaceAll(students: StudentRecord[], sessions: SessionRecord[], slots?: ScheduleSlot[], closures?: string[], contacts?: LogEntry[]): Promise<void> {
+    const tx = this.db.transaction(['students', 'sessions', 'schedule', 'meta', 'contacts'], 'readwrite');
     await tx.objectStore('students').clear();
     await tx.objectStore('sessions').clear();
     for (const s of students) await tx.objectStore('students').put(s);
@@ -143,6 +167,10 @@ export class Store {
       for (const s of slots) await tx.objectStore('schedule').put(s);
     }
     if (closures) await tx.objectStore('meta').put(closures, 'closures');
+    if (contacts) {
+      await tx.objectStore('contacts').clear();
+      for (const c of contacts) await tx.objectStore('contacts').put(c);
+    }
     await tx.done;
     await this.reload();
   }

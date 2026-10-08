@@ -16,6 +16,15 @@ export interface Prefs {
   supervisorCredentials: string;
   /** Beta: count "student not available" (assemblies, testing) as owed minutes. */
   countStudentUnavailableAsOwed: boolean;
+  /** Beta 2: school calendar for the 60-day clock and progress-report dates (day keys). */
+  lastDaySpring: string;
+  firstDayFall: string;
+  markingPeriodEnds: string[];
+  /** Beta 2: consecutive sessions at criterion that count as mastery. */
+  masterySessions: number;
+  /** Beta 2: COTA supervision paperwork (day keys). */
+  supervisionPlanDate: string;
+  appraisalDate: string;
 }
 
 const KEY = PREFS_KEY;
@@ -30,7 +39,13 @@ const DEFAULTS: Prefs = {
   role: 'OT',
   supervisorName: '',
   supervisorCredentials: 'OTR/L',
-  countStudentUnavailableAsOwed: false
+  countStudentUnavailableAsOwed: false,
+  lastDaySpring: '',
+  firstDayFall: '',
+  markingPeriodEnds: [],
+  masterySessions: 3,
+  supervisionPlanDate: '',
+  appraisalDate: ''
 };
 
 let current: Prefs = load();
@@ -84,4 +99,8 @@ export function enabledPromptLevels(p: Prefs = current): PromptLevel[] {
 export function supervisorSignature(p: Prefs = current): string {
   const name = p.supervisorName.trim() || '[Supervising OT]';
   return p.supervisorCredentials ? `${name}, ${p.supervisorCredentials}` : name;
+}
+
+export function schoolCalendar(p: Prefs = current) {
+  return { lastDaySpring: p.lastDaySpring || undefined, firstDayFall: p.firstDayFall || undefined, markingPeriodEnds: p.markingPeriodEnds };
 }

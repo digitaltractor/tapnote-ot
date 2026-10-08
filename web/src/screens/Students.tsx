@@ -2,11 +2,19 @@ import { useState } from 'preact/hooks';
 import { StudentIdentity, emptyIdentity } from '../core/types';
 import { aliasFor, makeCode } from '../core/pseudonym';
 import type { GoalRecord, StudentRecord } from '../data/db';
+import { DEADLINE_KIND_LABEL, Deadline, deadlinesFor, describeDays, fromKey, toKey } from '../core/deadlines';
+import { mastery } from '../core/mastery';
+import { goalProgress } from '../core/progress';
+import { goalSnapshots, snapshot } from '../data/store';
+import { schoolCalendar, usePrefs } from '../data/prefs';
 import { BackButton, Badge, Field, Icon, Svg, go, useApp, uuid, val } from '../ui/components';
 
 export function Students() {
   const { store, vault, authenticate } = useApp();
+  const prefs = usePrefs();
   const students = store.studentList();
+  const today = toKey(new Date());
+  const cal = schoolCalendar(prefs);
   const [showNames, setShowNames] = useState(false);
   const names = showNames && vault.isUnlocked ? vault.all() : {};
 
@@ -36,12 +44,20 @@ export function Students() {
           {students.map((s) => {
             const active = s.goals.filter((g) => g.isActive).length;
             const id = names[s.code];
+            const next = deadlinesFor(s, today, cal).find((d) => d.status !== 'upcoming');
+            const mastered = masteredGoals(store, s, prefs.masterySessions);
             return (
               <a class="list-item" href={`#/students/${encodeURIComponent(s.code)}`}>
                 <div class="grow">
                   <div class="row"><span class="mono">{s.code}</span><span class="muted">{s.alias}</span>{!s.isActive && <Badge>Inactive</Badge>}</div>
                   <span class="small muted">{[s.gradeBand && `Grade ${s.gradeBand}`, `${active} goal${active === 1 ? '' : 's'}`, `${s.weeklyMinutes} min/week ${s.serviceMode}`].filter(Boolean).join(' · ')}</span>
                   {id && <div class="vault-name">{id.realName}{id.dateOfBirth ? ` · ${id.dateOfBirth}` : ''}</div>}
+                  {(next || mastered > 0) && (
+                    <div class="row-wrap" style="margin-top:4px">
+                      {next && <DeadlineBadge d={next} />}
+                      {mastered > 0 && <Badge kind="ok">{mastered} goal{mastered === 1 ? '' : 's'} mastered</Badge>}
+                    </div>
+                  )}
                 </div>
               </a>
             );
@@ -68,6 +84,11 @@ export function StudentEditor({ code }: { code?: string }) {
   const [weeklyMinutes, setWeeklyMinutes] = useState(existing?.weeklyMinutes ?? 30);
   const [reportCadence, setReportCadence] = useState(existing?.reportCadence ?? 'Quarterly');
   const [isActive, setIsActive] = useState(existing?.isActive ?? true);
+  const [iepDate, setIepDate] = useState(existing?.iepDate ?? '');
+  const [lastEvalDate, setLastEvalDate] = useState(existing?.lastEvalDate ?? '');
+  const [reevalYears, setReevalYears] = useState<2 | 3>(existing?.reevalYears ?? 3);
+  const [evalConsentDate, setEvalConsentDate] = useState(existing?.evalConsentDate ?? '');
+  const prefs = usePrefs();
   const [goals, setGoals] = useState<GoalDraft[]>(() =>
     existing
       ? [...existing.goals].sort((a, b) => a.number - b.number).map((g) => ({ ...g, isNew: false }))
@@ -100,7 +121,12 @@ export function StudentEditor({ code }: { code?: string }) {
       reportCadence,
       isActive,
       createdAt: existing?.createdAt ?? new Date(),
-      goals: keptGoals
+      goals: keptGoals,
+      iepDate: iepDate || undefined,
+      lastEvalDate: lastEvalDate || undefined,
+      reevalYears,
+      evalConsentDate: evalConsentDate || undefined,
+      reportsExported: existing?.reportsExported
     };
     await store.putStudent(record, isNew ? 'created' : 'edited');
     if (identity) {
@@ -158,6 +184,28 @@ export function StudentEditor({ code }: { code?: string }) {
         {!isNew && <label class="check"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive((e.currentTarget as HTMLInputElement).checked)} /> Active</label>}
       </section>
 
+      <section class="card stack">
+        <h2>IEP and evaluation dates</h2>
+        <div class="grid2">
+          <Field label="Current IEP meeting" id="iep"><input id="iep" class="input" type="date" value={iepDate} onInput={(e) => setIepDate(val(e))} /></Field>
+          <Field label="Last ER / RR" id="er"><input id="er" class="input" type="date" value={lastEvalDate} onInput={(e) => setLastEvalDate(val(e))} /></Field>
+        </div>
+        <Field label="Re-evaluation cycle" id="rr">
+          <select id="rr" class="input" value={String(reevalYears)} onChange={(e) => setReevalYears(val(e) === '2' ? 2 : 3)}>
+            <option value="3">Every 3 years</option>
+            <option value="2">Every 2 years (required for intellectual disability in PA)</option>
+          </select>
+        </Field>
+        <Field label="Permission to evaluate received (if an evaluation is open)" id="pte" hint="Starts the 60-calendar-day clock. Summer break is skipped using the dates in Settings.">
+          <input id="pte" class="input" type="date" value={evalConsentDate} onInput={(e) => setEvalConsentDate(val(e))} />
+        </Field>
+        {evalConsentDate && (
+          <button type="button" class="btn block" onClick={() => { setLastEvalDate(toKey(new Date())); setEvalConsentDate(''); }}>Evaluation report finished today</button>
+        )}
+        <DueList deadlines={deadlinesFor({ code: studentCode, isActive: true, createdAt: existing?.createdAt ?? new Date(), reportCadence, iepDate: iepDate || undefined, lastEvalDate: lastEvalDate || undefined, reevalYears, evalConsentDate: evalConsentDate || undefined, reportsExported: existing?.reportsExported }, toKey(new Date()), schoolCalendar(prefs), 400)} />
+        <div class="tiny muted">Dates follow PA and IDEA timelines. Check your district's internal deadlines, which are often earlier.</div>
+      </section>
+
       <section class="stack-sm">
         <h2 class="section-title">IEP goals</h2>
         {goals.map((g, i) => (
@@ -203,4 +251,30 @@ export function StudentEditor({ code }: { code?: string }) {
       </section>
     </div>
   );
+}
+
+export function DeadlineBadge({ d }: { d: Deadline }) {
+  return <Badge kind={d.status === 'upcoming' ? 'neutral' : 'warn'}>{DEADLINE_KIND_LABEL[d.kind]} {describeDays(d)}</Badge>;
+}
+
+function DueList({ deadlines }: { deadlines: Deadline[] }) {
+  if (!deadlines.length) return null;
+  return (
+    <div class="stack-sm">
+      {deadlines.map((d) => (
+        <div class="row small">
+          <span class="spacer">{d.label}</span>
+          <span>{fromKey(d.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          <Badge kind={d.status === 'upcoming' ? 'neutral' : 'warn'}>{describeDays(d)}</Badge>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Goals whose latest N sessions (all time) are at criterion. */
+function masteredGoals(store: ReturnType<typeof useApp>['store'], st: StudentRecord, needed: number): number {
+  const snaps = store.sessionList().filter((s) => s.studentCode === st.code).map((s) => snapshot(s, st));
+  const all = { start: new Date(0), end: new Date(8.64e15) };
+  return goalSnapshots(st).filter((g) => mastery(goalProgress(g, snaps, all, 'period').points, g.criterionPercent, needed).mastered).length;
 }

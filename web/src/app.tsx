@@ -11,6 +11,8 @@ import { Reports } from './screens/Reports';
 import { Students, StudentEditor } from './screens/Students';
 import { Settings } from './screens/Settings';
 import { Schedule } from './screens/Schedule';
+import { Logs } from './screens/Logs';
+import type { LogKind } from './core/contacts';
 import { IS_BETA } from './env';
 
 interface AuthRequest {
@@ -63,13 +65,14 @@ export function App({ store, vault }: { store: Store; vault: Vault }) {
   switch (head) {
     case 'session': screen = <Capture groupKey={arg} />; break;
     case 'review': screen = arg ? <NoteDetail sessionId={arg} /> : <Review />; break;
-    case 'reports': screen = <Reports tab={arg === 'minutes' ? 'minutes' : 'progress'} />; break;
+    case 'reports': screen = <Reports tab={arg === 'minutes' || arg === 'due' ? arg : 'progress'} />; break;
+    case 'logs': screen = <Logs kind={(['consult', 'parent', 'supervision'].includes(arg) ? arg : 'consult') as LogKind} />; break;
     case 'schedule': screen = <Schedule />; break;
     case 'students': screen = arg ? <StudentEditor code={arg === 'new' ? undefined : arg} /> : <Students />; break;
     case 'settings': screen = <Settings />; break;
     default: screen = <Today />;
   }
-  const tab = head === 'session' || head === 'schedule' ? 'today' : head;
+  const tab = head === 'session' || head === 'schedule' || head === 'logs' ? 'today' : head;
 
   return (
     <Ctx.Provider value={ctx}>

@@ -81,7 +81,7 @@ export function Settings() {
   };
 
   const exportBackup = async () => {
-    const file = await makeBackup(store.studentList(), store.sessionList(), backupPass, { schedule: store.slotList(), closures: store.closures });
+    const file = await makeBackup(store.studentList(), store.sessionList(), backupPass, { schedule: store.slotList(), closures: store.closures, contacts: store.contactList() });
     setBackupPass('');
     setBackupPass2('');
     await store.audit('Backup', 'export', 'exported');
@@ -100,7 +100,7 @@ export function Settings() {
     try {
       const data = await readBackup(restoreFile, restorePass);
       if (!confirm(`Replace all data on this device with ${data.students.length} students and ${data.sessions.length} sessions from ${time.date(data.createdAt)}?`)) return;
-      await store.replaceAll(data.students, data.sessions, data.schedule, data.closures);
+      await store.replaceAll(data.students, data.sessions, data.schedule, data.closures, data.contacts);
       await store.audit('Backup', 'restore', 'restored', `${data.students.length} students, ${data.sessions.length} sessions`);
       setRestoreFile(null);
       setRestorePass('');
@@ -177,6 +177,7 @@ export function Settings() {
       </section>
 
       <RoleSection />
+      <CalendarSection />
 
       <section class="card stack-sm">
         <h2>Prompt levels</h2>
@@ -386,6 +387,39 @@ function RoleSection() {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+/** Beta 2: school calendar (60-day clock, report dates) and mastery rule. */
+function CalendarSection() {
+  const prefs = usePrefs();
+  const [mp, setMp] = useState('');
+  return (
+    <section class="card stack">
+      <h2>School calendar and mastery</h2>
+      <div class="grid2">
+        <Field label="Last day of school (spring)" id="cal-ls"><input id="cal-ls" class="input" type="date" value={prefs.lastDaySpring} onInput={(e) => setPrefs({ lastDaySpring: val(e) })} /></Field>
+        <Field label="First day of school (fall)" id="cal-ff"><input id="cal-ff" class="input" type="date" value={prefs.firstDayFall} onInput={(e) => setPrefs({ firstDayFall: val(e) })} /></Field>
+      </div>
+      <div class="tiny muted">Summer break doesn't count toward the 60-day evaluation clock. Update these each year.</div>
+      <div class="stack-sm">
+        <div class="label">Marking periods end</div>
+        {prefs.markingPeriodEnds.length === 0 && <div class="tiny muted">None set. Quarterly progress reports fall back to calendar quarter ends.</div>}
+        {[...prefs.markingPeriodEnds].sort().map((k) => (
+          <div class="row small">
+            <span class="spacer">{fromDateInput(k).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <button class="link" aria-label={`Remove ${k}`} onClick={() => setPrefs({ markingPeriodEnds: prefs.markingPeriodEnds.filter((x) => x !== k) })}>Remove</button>
+          </div>
+        ))}
+        <div class="row">
+          <input class="input" type="date" aria-label="Marking period end date" value={mp} onInput={(e) => setMp(val(e))} />
+          <button class="btn" disabled={!mp} onClick={() => { setPrefs({ markingPeriodEnds: [...new Set([...prefs.markingPeriodEnds, mp])].sort() }); setMp(''); }}>Add</button>
+        </div>
+      </div>
+      <Field label="Sessions in a row at criterion for mastery" id="mast" hint="Used for mastery badges and suggested next steps in progress reports.">
+        <input id="mast" class="input" type="number" inputMode="numeric" min={1} max={10} style="width:110px" value={prefs.masterySessions} onInput={(e) => setPrefs({ masterySessions: Math.min(10, Math.max(1, Number(val(e)) || 3)) })} />
+      </Field>
     </section>
   );
 }

@@ -2,6 +2,9 @@ import type { Activity, GoalObservation } from '../core/types';
 import { ATTENDANCE, DELIVERY, NOTE_FORMATS, PROGRESS_INDICATORS, REGULATION_STATES } from '../core/types';
 import type { SessionRecord, StudentRecord } from './db';
 import type { ScheduleSlot } from '../core/schedule';
+import type { LogEntry } from '../core/contacts';
+import { LOG_KINDS } from '../core/contacts';
+import { isDayKey } from '../core/deadlines';
 import { dec, enc, pbkdf2Key, randomBytes } from './crypto';
 
 /**
@@ -18,6 +21,13 @@ interface StudentDTO {
   code: string; alias: string; gradeBand: string; serviceMode: string; reportCadence: string;
   weeklyMinutes: number; isActive: boolean;
   goals: { id: string; number: number; shortName: string; detail: string; criterionPercent: number; isActive: boolean }[];
+  // beta 2 (web); ignored by the iOS app
+  iepDate?: string; lastEvalDate?: string; reevalYears?: number; evalConsentDate?: string; reportsExported?: string[];
+}
+
+interface ContactDTO {
+  id: string; kind: string; date: string; minutes?: number; studentCodes: string[]; who: string; method: string;
+  topic: string; outcome: string; followUp?: string; followUpDone?: boolean; onsite?: boolean; observed?: boolean; createdAt: string;
 }
 
 interface SessionDTO {
@@ -39,6 +49,7 @@ interface Payload {
   sessions: SessionDTO[];
   schedule?: ScheduleSlot[];
   closures?: string[];
+  contacts?: ContactDTO[];
 }
 
 /** ISO-8601 without milliseconds, which Swift's .iso8601 strategy requires. */
@@ -58,17 +69,19 @@ export async function makeBackup(
   students: StudentRecord[],
   sessions: SessionRecord[],
   passphrase: string,
-  extra: { schedule?: ScheduleSlot[]; closures?: string[] } = {}
+  extra: { schedule?: ScheduleSlot[]; closures?: string[]; contacts?: LogEntry[] } = {}
 ): Promise<Uint8Array<ArrayBuffer>> {
   const payload: Payload = {
     version: 2,
     schedule: extra.schedule,
     closures: extra.closures,
+    contacts: extra.contacts?.map((c) => ({ ...c, date: iso(c.date), createdAt: iso(c.createdAt) })),
     createdAt: iso(new Date()),
     students: students.map((s) => ({
       code: s.code, alias: s.alias, gradeBand: s.gradeBand, serviceMode: s.serviceMode, reportCadence: s.reportCadence,
       weeklyMinutes: s.weeklyMinutes, isActive: s.isActive,
-      goals: s.goals.map((g) => ({ id: g.id, number: g.number, shortName: g.shortName, detail: g.detail, criterionPercent: g.criterionPercent, isActive: g.isActive }))
+      goals: s.goals.map((g) => ({ id: g.id, number: g.number, shortName: g.shortName, detail: g.detail, criterionPercent: g.criterionPercent, isActive: g.isActive })),
+      iepDate: s.iepDate, lastEvalDate: s.lastEvalDate, reevalYears: s.reevalYears, evalConsentDate: s.evalConsentDate, reportsExported: s.reportsExported
     })),
     sessions: sessions.map((r) => ({
       id: r.id, groupKey: r.groupKey, studentCode: r.studentCode, groupSize: r.groupSize, plannedMinutes: r.plannedMinutes,
@@ -98,7 +111,7 @@ export async function makeBackup(
 export async function readBackup(
   file: Uint8Array<ArrayBuffer>,
   passphrase: string
-): Promise<{ students: StudentRecord[]; sessions: SessionRecord[]; createdAt: Date; schedule?: ScheduleSlot[]; closures?: string[] }> {
+): Promise<{ students: StudentRecord[]; sessions: SessionRecord[]; createdAt: Date; schedule?: ScheduleSlot[]; closures?: string[]; contacts?: LogEntry[] }> {
   if (file.length <= 36 + 16 || MAGIC.some((b, i) => file[i] !== b)) throw new Error('This isn’t a TapNote backup file.');
   const salt = file.slice(4, 20);
   const iterations = new DataView(file.buffer, file.byteOffset).getUint32(20, false);
@@ -114,8 +127,21 @@ export async function readBackup(
   const students: StudentRecord[] = p.students.map((s) => ({
     code: s.code, alias: s.alias, gradeBand: s.gradeBand ?? '', serviceMode: s.serviceMode === 'group' ? 'group' : 'individual',
     weeklyMinutes: s.weeklyMinutes ?? 30, reportCadence: s.reportCadence ?? 'Quarterly', isActive: s.isActive !== false, createdAt: new Date(),
-    goals: (s.goals ?? []).map((g) => ({ ...g }))
+    goals: (s.goals ?? []).map((g) => ({ ...g })),
+    iepDate: isDayKey(s.iepDate) ? s.iepDate : undefined,
+    lastEvalDate: isDayKey(s.lastEvalDate) ? s.lastEvalDate : undefined,
+    reevalYears: s.reevalYears === 2 ? 2 : s.reevalYears === 3 ? 3 : undefined,
+    evalConsentDate: isDayKey(s.evalConsentDate) ? s.evalConsentDate : undefined,
+    reportsExported: Array.isArray(s.reportsExported) ? s.reportsExported.filter(isDayKey) : undefined
   }));
+  const contacts: LogEntry[] | undefined = Array.isArray(p.contacts)
+    ? p.contacts.filter((c) => LOG_KINDS.includes(c.kind as LogEntry['kind'])).map((c) => ({
+      id: c.id, kind: c.kind as LogEntry['kind'], date: date(c.date), minutes: c.minutes ?? undefined, studentCodes: c.studentCodes ?? [],
+      who: c.who ?? '', method: c.method as LogEntry['method'], topic: c.topic ?? '', outcome: c.outcome ?? '',
+      followUp: isDayKey(c.followUp) ? c.followUp : undefined, followUpDone: !!c.followUpDone,
+      onsite: c.onsite ?? undefined, observed: c.observed ?? undefined, createdAt: dateOpt(c.createdAt) ?? date(c.date)
+    }))
+    : undefined;
   const sessions: SessionRecord[] = p.sessions.map((r) => ({
     id: r.id, groupKey: r.groupKey, studentCode: r.studentCode, groupSize: r.groupSize, plannedMinutes: r.plannedMinutes,
     date: date(r.date), start: dateOpt(r.start), end: dateOpt(r.end),
@@ -144,6 +170,7 @@ export async function readBackup(
     sessions,
     createdAt: date(p.createdAt),
     schedule: Array.isArray(p.schedule) ? p.schedule : undefined,
-    closures: Array.isArray(p.closures) ? p.closures : undefined
+    closures: Array.isArray(p.closures) ? p.closures : undefined,
+    contacts
   };
 }

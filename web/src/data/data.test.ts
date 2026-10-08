@@ -101,6 +101,26 @@ describe('beta data', () => {
     expect(back.sessions[0].coSignedAt?.toISOString()).toBe('2026-10-08T12:00:00.000Z');
     expect(back.sessions[0].makeUpFor).toEqual(['X']);
   });
+  it('upgrades to v3 with a contacts store and round-trips logs and deadline dates in backups', async () => {
+    const st = await Store.open('t-contacts');
+    const c = {
+      id: 'c1', kind: 'supervision' as const, date: new Date('2026-10-05T14:00:00Z'), minutes: 20, studentCodes: [], who: 'Supervising OT',
+      method: 'faceToFace' as const, topic: 'Observed fine-motor group', outcome: 'Adjust grading', onsite: true, observed: true,
+      followUp: '2026-10-12', followUpDone: false, createdAt: new Date('2026-10-05T14:30:00Z')
+    };
+    await st.putContact(c);
+    const again = await Store.open('t-contacts');
+    expect(again.contactList('supervision').map((x) => x.id)).toEqual(['c1']);
+    const withDates = { ...student, iepDate: '2025-11-01', lastEvalDate: '2024-10-15', reevalYears: 2 as const, reportsExported: ['2026-09-29', 'bad'] };
+    const file = await makeBackup([withDates], [session], 'pp', { contacts: again.contactList() });
+    const back = await readBackup(file, 'pp');
+    expect(back.contacts?.[0]).toEqual(c);
+    expect(back.students[0].iepDate).toBe('2025-11-01');
+    expect(back.students[0].reevalYears).toBe(2);
+    expect(back.students[0].reportsExported).toEqual(['2026-09-29']);
+    await again.replaceAll(back.students, back.sessions, undefined, undefined, []);
+    expect(again.contacts.size).toBe(0);
+  });
   it('verifies the supervisor co-sign passphrase', async () => {
     const { setCoSignPassphrase, verifyCoSignPassphrase, hasCoSignPassphrase } = await import('./cosign');
     const st = await Store.open('t-cosign');

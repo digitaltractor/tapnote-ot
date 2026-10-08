@@ -5,7 +5,10 @@ import { ScheduleSlot, dayKey, slotStart, slotsForDay, unloggedSlots } from '../
 import { minutesSummary } from '../core/minutes';
 import type { SessionRecord } from '../data/db';
 import { isInProgress } from '../data/store';
-import { getPrefs, usePrefs } from '../data/prefs';
+import { getPrefs, schoolCalendar, usePrefs } from '../data/prefs';
+import { allDeadlines, describeDays } from '../core/deadlines';
+import { followUps, supervisionMonth } from '../core/contacts';
+import { LogEditor } from './Logs';
 import { Badge, Sheet, go, sameDay, useApp, uuid } from '../ui/components';
 
 const time = new TimeStyle();
@@ -38,8 +41,9 @@ function outstandingMisses(store: ReturnType<typeof useApp>['store'], codes: str
 
 export function Today() {
   const { store } = useApp();
-  usePrefs();
+  const prefs = usePrefs();
   const [starting, setStarting] = useState(false);
+  const [logging, setLogging] = useState(false);
   const [slotAction, setSlotAction] = useState<{ slot: ScheduleSlot; mode: 'start' | 'absent' } | null>(null);
   const now = new Date();
   const today = dayKey(now);
@@ -87,7 +91,12 @@ export function Today() {
       <div class="grid2">
         <button class="btn primary big" onClick={() => setStarting(true)}>Unscheduled session</button>
         <a class="btn big" href="#/schedule">Weekly schedule</a>
+        <button class="btn" onClick={() => setLogging(true)}>Log a contact</button>
+        <a class="btn" href="#/logs">Logs</a>
       </div>
+
+      <DueSoon />
+      {prefs.role === 'COTA' && <SupervisionNudge />}
 
       {gaps.length > 0 && (
         <a class="card row" href="#/reports/minutes" style="text-decoration:none;color:inherit;border-color:var(--amber)">
@@ -113,6 +122,7 @@ export function Today() {
       )}
 
       {starting && <StartSession onClose={() => setStarting(false)} />}
+      {logging && <LogEditor kind="consult" onClose={() => setLogging(false)} />}
       {slotAction && <SlotSheet slot={slotAction.slot} mode={slotAction.mode} onClose={() => setSlotAction(null)} />}
     </div>
   );
@@ -296,5 +306,46 @@ function StartSession({ onClose }: { onClose: () => void }) {
         <button class="btn primary block big" disabled={selected.length === 0} onClick={start}>{attendance === 'present' ? 'Start' : 'Log absence'}</button>
       </div>
     </Sheet>
+  );
+}
+
+/** Beta 2: overdue and due-soon IEP, evaluation and report dates, plus contact follow-ups. */
+function DueSoon() {
+  const { store } = useApp();
+  const prefs = usePrefs();
+  const today = dayKey(new Date());
+  const items = [
+    ...allDeadlines(store.studentList(), today, schoolCalendar(prefs)).filter((d) => d.status !== 'upcoming')
+      .map((d) => ({ key: `${d.code}-${d.kind}-${d.due}`, due: d.due, overdue: d.status === 'overdue', code: d.code, text: d.label, when: describeDays(d), href: `#/students/${encodeURIComponent(d.code)}` })),
+    ...followUps(store.contactList(), today).filter((f) => f.status !== 'upcoming')
+      .map((f) => ({ key: f.entry.id, due: f.due, overdue: f.status === 'overdue', code: f.entry.studentCodes.join(', '), text: `Follow up: ${f.entry.topic || f.entry.who}`, when: describeDays(f), href: `#/logs/${f.entry.kind}` }))
+  ].sort((a, b) => a.due.localeCompare(b.due));
+  if (!items.length) return null;
+  const shown = items.slice(0, 5);
+  return (
+    <section class="card stack-sm" style={items.some((i) => i.overdue) ? 'border-color:var(--amber)' : ''}>
+      <div class="row"><h2 class="spacer">Due soon</h2><a class="link" href="#/reports/due">All dates</a></div>
+      {shown.map((i) => (
+        <a class="row small" href={i.href} style="text-decoration:none;color:inherit;min-height:36px">
+          <span class="mono" style="flex:none">{i.code}</span>
+          <span class="spacer" style="min-width:0">{i.text}</span>
+          <Badge kind={i.overdue ? 'warn' : 'neutral'}>{i.when}</Badge>
+        </a>
+      ))}
+      {items.length > shown.length && <div class="tiny muted">and {items.length - shown.length} more</div>}
+    </section>
+  );
+}
+
+function SupervisionNudge() {
+  const { store } = useApp();
+  const now = new Date();
+  const m = supervisionMonth(store.contactList('supervision'), store.sessionList(), now.getFullYear(), now.getMonth());
+  if (m.directMinutes === 0 || m.issues.length === 0) return null;
+  return (
+    <a class="card row" href="#/logs/supervision" style="text-decoration:none;color:inherit">
+      <span class="spacer small">Supervision this month: {m.supervisionMinutes} of {m.requiredMinutes} min{m.onsiteObservation ? '' : ', no onsite observation yet'}.</span>
+      <span class="badge warn">Check</span>
+    </a>
   );
 }

@@ -4,6 +4,7 @@ import type {
   Activity, Attendance, Delivery, GoalObservation, NoteFormat, ProgressIndicator, RegulationState
 } from '../core/types';
 import type { ScheduleSlot } from '../core/schedule';
+import type { LogEntry } from '../core/contacts';
 
 // Only pseudonymous data is stored in plain IndexedDB. Real identities live in the
 // encrypted vault blob (see vault.ts) and are decrypted in memory only while unlocked.
@@ -27,6 +28,12 @@ export interface StudentRecord {
   isActive: boolean;
   createdAt: Date;
   goals: GoalRecord[];
+  // Beta 2: deadline dates as local day keys ("2026-10-07")
+  iepDate?: string;
+  lastEvalDate?: string;
+  reevalYears?: 2 | 3;
+  evalConsentDate?: string;
+  reportsExported?: string[];
 }
 
 export interface Addendum {
@@ -84,12 +91,13 @@ interface TapNoteDB extends DBSchema {
   audit: { key: number; value: AuditEvent };
   meta: { key: string; value: unknown };
   schedule: { key: string; value: ScheduleSlot };
+  contacts: { key: string; value: LogEntry };
 }
 
 export type DB = IDBPDatabase<TapNoteDB>;
 
 export async function openTapNoteDB(name = DB_NAME): Promise<DB> {
-  return openDB<TapNoteDB>(name, 2, {
+  return openDB<TapNoteDB>(name, 3, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore('students', { keyPath: 'code' });
@@ -101,6 +109,9 @@ export async function openTapNoteDB(name = DB_NAME): Promise<DB> {
       }
       if (oldVersion < 2) {
         db.createObjectStore('schedule', { keyPath: 'id' });
+      }
+      if (oldVersion < 3) {
+        db.createObjectStore('contacts', { keyPath: 'id' });
       }
     }
   });

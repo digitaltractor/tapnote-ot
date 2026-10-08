@@ -233,3 +233,9 @@ textarea.input { min-height: 220px; line-height: 1.45; resize: vertical; }
 .meter { height: 10px; border-radius: 5px; background: var(--grey); overflow: hidden; }
 .meter > span { display: block; height: 100%; background: var(--acc); }
 .meter.short > span { background: var(--amber); }
+
+/* Beta 2: per-session strips under charts */
+.strip { display: flex; gap: 6px; }
+.strip > span { flex: 1; min-width: 4px; text-align: center; font-size: 11px; color: var(--muted); overflow: hidden; white-space: nowrap; }
+.strip.reg > span { height: 18px; border-radius: 4px; background: var(--grey); }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }

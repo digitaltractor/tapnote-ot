@@ -56,6 +56,15 @@ New features land on the `beta` branch first and are published at `https://tapno
 - **COTA co-sign.** Set the role to COTA in Settings. Signed notes show "Needs co-sign" until the supervising OT co-signs with her own passphrase. Co-signers appear in the SBAP CSV and notes PDF.
 - **Full SBAP activity list.** All 53 treatment keys can be picked in session (More…) or added to quick-tap favorites. The list is transcribed from the 09/2023 form; verify against the current revision.
 
+**Beta 2 (web):**
+- **IEP and evaluation deadlines.** Each student can have a current IEP date, a last ER/RR date with a 3- or 2-year cycle, and the date permission to evaluate was received. The 60-calendar-day clock skips summer break. Progress-report due dates follow the student's report cadence and the marking periods in Settings. Overdue and due-soon items appear on Today, as badges on Students, and under Reports → Due dates. Exporting a progress report PDF marks that report done.
+- **Goal mastery and trends.** Mastery means N consecutive sessions at criterion (the default is 3; set it in Settings). Progress cards show the run so far, how prompting changed and whether it is fading, plus regulation and engagement strips. The report draft gets suggested next steps for each goal and for regulation, written from recorded data only and meant to be edited.
+- **Consult, parent and supervision logs** (Today → Logs). Quick entries record role, method, students, topic, outcome and an optional follow-up date, and follow-ups show on Today. Consult and parent counts are added to progress reports. The COTA supervision check implements 49 Pa. Code § 42.22:
+  - supervisory contact of at least 10% of direct-care minutes, with each group session counted once;
+  - an onsite face-to-face contact with observation every month;
+  - a mix of contact types;
+  - supervisory plan and annual appraisal dates.
+
 Promote to stable by merging `beta` into `main`. Port settled features to the SwiftUI app afterwards.
 
 ## Native iOS app: build and run
