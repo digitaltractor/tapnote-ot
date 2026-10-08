@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TapNote OT — Prototype</title>
+<meta name="description" content="Clickable prototype of a session-capture app for school-based occupational therapists. Sample data only.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{--acc:#1F6B66;--ink:#17201E;--muted:#55605D;--line:#D5DAD4;--card:#FFFFFF;--ground:#F4F5F1;--tint:#E2EFEC;--amber:#8F4C10;--amberBg:#FBEFE2;--grey:#ECEDEA;--page:#E7E9E4}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font-family:'Atkinson Hyperlegible',system-ui,sans-serif}
+.stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px 16px 32px}
+.intro{max-width:390px;text-align:center;font-size:14px;color:var(--muted);line-height:1.45}
+.intro strong{color:var(--ink)}
+.phone{width:390px;max-width:100%;height:844px;max-height:calc(100vh - 140px);min-height:640px;display:flex;flex-direction:column;background:var(--ground);border:1px solid var(--line);border-radius:28px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06);font-size:16px;line-height:1.4}
+@media (max-width:440px){.stage{padding:0;gap:0}.intro{display:none}.phone{height:100vh;max-height:none;min-height:0;border:0;border-radius:0}}
+.scroll{flex:1 1 auto;overflow-y:auto;min-height:0}
+.pad{padding:24px 20px;display:flex;flex-direction:column;gap:16px}
+.eyebrow{font-size:14px;color:var(--muted)}
+h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.01em}
+.sub{font-size:15px;color:var(--muted)}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:500}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.badge{flex:0 0 auto;font-size:13px;font-weight:700;padding:4px 10px;border-radius:12px;white-space:nowrap}
+.small{font-size:13px;color:var(--muted)}
+.tiny{font-size:12.5px;color:var(--muted)}
+button{font:inherit;cursor:pointer}
+.primary{min-height:52px;border:0;border-radius:12px;background:var(--acc);color:#fff;font-size:16px;font-weight:700}
+.secondary{min-height:48px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font-size:15px;font-weight:700}
+.chip{min-height:44px;padding:0 14px;border-radius:22px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;font-weight:500}
+.chip.on{border-color:var(--acc);background:var(--tint);color:var(--acc);font-weight:700}
+.seg{min-height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;font-weight:500}
+.seg.on{border-color:var(--acc);background:var(--tint);color:var(--acc);font-weight:700}
+.wrap{display:flex;flex-wrap:wrap;gap:6px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.grid5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec h2{margin:0;font-size:14px;font-weight:700;color:var(--muted)}
+.goal{padding:14px;display:flex;flex-direction:column;gap:10px}
+.goal h2{margin:0;font-size:15px;font-weight:700}
+.big{flex:1 1 0;min-height:56px;border-radius:12px;font-size:17px;font-weight:700}
+.big.hit{border:0;background:var(--acc);color:#fff}
+.big.miss{border:1.5px solid var(--acc);background:#fff;color:var(--acc)}
+.linkish{min-height:32px;padding:0 8px;border:0;background:transparent;color:var(--muted);font-size:13px;text-decoration:underline}
+.topbar{position:sticky;top:0;z-index:2;background:var(--ground);border-bottom:1px solid var(--line);padding:14px 16px 12px;display:flex;align-items:center;gap:10px}
+.iconbtn{width:44px;height:44px;flex:0 0 44px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);display:flex;align-items:center;justify-content:center}
+nav{flex:0 0 72px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line);background:#fff}
+nav button{border:0;background:transparent;color:var(--muted);font-size:12.5px;font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+nav button.on{color:var(--acc);font-weight:700}
+input[type=text]{min-height:48px;padding:0 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:16px;width:100%}
+button:focus-visible,input:focus-visible{outline:3px solid #2C7FB8;outline-offset:2px}
+.chart{position:relative;height:100px;display:flex;align-items:flex-end;gap:6px;border-bottom:1px solid var(--line)}
+.chart .bar{flex:1 1 0;background:var(--acc);border-radius:4px 4px 0 0;opacity:.85}
+.chart .crit{position:absolute;left:0;right:0;border-top:1.5px dashed var(--amber)}
+</style>
+</head>
+<body>
+<div class="stage">
+<p class="intro"><strong>TapNote OT</strong> — clickable prototype of a session-capture app for school-based occupational therapists. All students and numbers are made-up sample data.</p>
+<main class="phone" id="app" aria-live="polite"></main>
+</div>
+<script>
+(function () {
+  'use strict';
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var S = {
+    screen: (location.hash || '#today').slice(1),
+    acts: ['19', '51'], g1c: 7, g1t: 10, g1p: 'Verbal', g2c: 3, g2t: 6, g2p: 'Partial physical',
+    reg: 'Calm', eng: 4, prog: null, note: '', ended: false,
+    signed: {}, open: null, stu: 'otter', period: 'Quarter', drafted: false, vault: false
+  };
+  if (['today', 'capture', 'review', 'reports', 'roster'].indexOf(S.screen) < 0) S.screen = 'today';
+
+  var ACTS = [['19', 'Handwriting control'], ['12', 'Grasp / release'], ['51', 'Visual perception'], ['41', 'Self-regulation'], ['sc', 'Scissor skills'], ['bi', 'Bilateral coordination']];
+  var PROMPTS = [['Independent', 'Ind'], ['Verbal', 'Verbal'], ['Gestural', 'Gesture'], ['Visual', 'Visual'], ['Model', 'Model'], ['Partial physical', 'Partial'], ['Full physical', 'Full']];
+  var REG = [['Low', '#DCE6F2'], ['Calm', '#DCEFE4'], ['Heightened', '#FBE7C8'], ['High', '#F4D3CC']];
+  var PROG = ['Mastering', 'Progressing', 'Maintaining', 'Inconsistent', 'Regressing'];
+  var STU = {
+    otter: { label: 'K7-OTTER', goals: [
+      { title: 'Goal 1 · Letter formation', crit: 90, data: [40, 45, 50, 55, 50, 60, 65, 70], name: 'letter formation on 3-line paper' },
+      { title: 'Goal 2 · Cutting a curved line', crit: 80, data: [20, 30, 30, 40, 35, 45, 50, 50], name: 'cutting a curved line within ¼ in' }] },
+    heron: { label: 'M3-HERON', goals: [{ title: 'Goal 1 · Buttoning', crit: 80, data: [30, 30, 40, 50, 60, 60, 70, 75], name: 'buttoning a 1 in button' }] },
+    maple: { label: 'P9-MAPLE', goals: [{ title: 'Goal 1 · Copying from board', crit: 85, data: [60, 65, 70, 70, 75, 80, 80, 85], name: 'near-point copying' }] }
+  };
+  var ROSTER = [
+    ['K7-OTTER', 'Otter', 'Grade band 1–2 · 2 goals · 60 min/week individual'],
+    ['M3-HERON', 'Heron', 'Grade band K · 1 goal · 30 min/week individual'],
+    ['P9-MAPLE', 'Maple', 'Grade band 3–5 · 1 goal · 30 min/week individual'],
+    ['R2-FINCH', 'Finch', 'Grade band 1–2 · 2 goals · 30 min/week group'],
+    ['T5-CEDAR', 'Cedar', 'Grade band 1–2 · 1 goal · 30 min/week group'],
+    ['B8-WREN', 'Wren', 'Grade band 1–2 · 2 goals · 30 min/week group']
+  ];
+
+  var pct = function (c, t) { return t ? Math.round(c * 100 / t) + '%' : '—'; };
+  var on = function (b) { return b ? ' on' : ''; };
+  var btn = function (cls, action, arg, label, extra) {
+    return '<button type="button" class="' + cls + '" data-a="' + action + '"' + (arg !== null && arg !== undefined ? ' data-v="' + esc(arg) + '"' : '') + (extra || '') + '>' + label + '</button>';
+  };
+  var badge = function (label, kind) {
+    var c = kind === 'ok' ? 'background:var(--tint);color:var(--acc)' : kind === 'warn' ? 'background:var(--amberBg);color:var(--amber)' : 'background:var(--grey);color:var(--ink)';
+    return '<span class="badge" style="' + c + '">' + esc(label) + '</span>';
+  };
+
+  function today() {
+    var rows = [
+      ['8:30', 'R2-FINCH +2', 'Finch, Cedar, Wren', 'Group of 3', 'Done', 'ok', false],
+      ['9:15', 'K7-OTTER', 'Otter', 'Individual', S.ended ? 'Done' : 'Next', S.ended ? 'ok' : 'n', !S.ended],
+      ['10:00', 'M3-HERON', 'Heron', 'Individual', 'Absent', 'warn', false],
+      ['11:00', 'P9-MAPLE', 'Maple', 'Individual', 'Upcoming', 'n', false],
+      ['1:15', 'J4-BIRCH', 'Birch', 'Teacher consult', 'Upcoming', 'n', false],
+      ['2:00', 'L6-ASPEN', 'Aspen', 'Individual', 'Upcoming', 'n', false]
+    ];
+    var h = '<div class="pad"><div><div class="eyebrow">Wednesday, October 7</div><h1>Today</h1><div class="sub">6 sessions · ' + (S.ended ? 2 : 1) + ' done · notes due by end of day</div></div><div style="display:flex;flex-direction:column;gap:10px">';
+    rows.forEach(function (r) {
+      h += '<div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:flex-start;gap:12px">' +
+        '<div style="width:48px;flex:0 0 48px;font-size:15px;font-weight:700;padding-top:1px">' + r[0] + '</div>' +
+        '<div style="flex:1 1 auto;min-width:0"><div class="mono" style="font-size:15px">' + r[1] + '</div><div class="small" style="font-size:14px">' + r[2] + ' · ' + r[3] + '</div></div>' +
+        badge(r[4], r[5]) + '</div>' + (r[6] ? btn('primary', 'go', 'capture', 'Start session', ' style="min-height:48px"') : '') + '</div>';
+    });
+    return h + '</div><div class="small">Students appear by code and alias only. Real names live in the identity vault on this phone.</div></div>';
+  }
+
+  function goalCard(n, title) {
+    var c = S['g' + n + 'c'], t = S['g' + n + 't'], p = S['g' + n + 'p'];
+    var h = '<section class="card goal"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>' + title + '</h2>' + btn('linkish', 'reset', n, 'Reset') + '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px">' + btn('big hit', 'hit', n, 'Correct') + btn('big miss', 'miss', n, 'Miss') +
+      '<div style="width:78px;flex:0 0 78px;text-align:right"><div style="font-size:22px;font-weight:700">' + pct(c, t) + '</div><div class="small">' + c + ' / ' + t + '</div></div></div>' +
+      '<div class="small">Prompt level</div><div class="wrap">';
+    PROMPTS.forEach(function (x) { h += btn('seg' + on(x[0] === p), 'prompt', n + '|' + x[0], x[1]); });
+    return h + '</div></section>';
+  }
+
+  function capture() {
+    var h = '<div class="topbar">' + btn('iconbtn', 'go', 'today', '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>', ' aria-label="Back to Today"') +
+      '<div style="flex:1 1 auto;min-width:0"><div class="mono" style="font-size:16px">K7-OTTER</div><div class="small">Otter · Individual · started 9:15 AM</div></div>' +
+      btn('primary', 'end', null, 'End', ' style="min-height:44px;padding:0 16px;font-size:15px"') + '</div>';
+    h += '<div style="padding:16px;display:flex;flex-direction:column;gap:20px"><section class="sec"><h2>Activities</h2><div class="wrap" style="gap:8px">';
+    ACTS.forEach(function (a) { h += btn('chip' + on(S.acts.indexOf(a[0]) >= 0), 'act', a[0], a[1]); });
+    h += '</div></section>' + goalCard(1, 'Goal 1 · Letter formation, 3-line paper') + goalCard(2, 'Goal 2 · Cut a curved line within ¼ in');
+    h += '<section class="sec"><h2>Regulation</h2><div class="grid4">';
+    REG.forEach(function (r) {
+      var sel = r[0] === S.reg;
+      h += btn('', 'reg', r[0], r[0], ' aria-pressed="' + sel + '" style="min-height:48px;padding:0 4px;border-radius:10px;border:2px solid ' + (sel ? 'var(--ink)' : 'transparent') + ';background:' + r[1] + ';color:var(--ink);font-size:14px;font-weight:' + (sel ? 700 : 500) + '"');
+    });
+    h += '</div></section><section class="sec"><h2>Engagement (1 low – 5 high)</h2><div class="grid5">';
+    [1, 2, 3, 4, 5].forEach(function (n) { h += btn('seg' + on(n === S.eng), 'eng', n, n, ' style="min-height:48px;font-size:17px"'); });
+    h += '</div></section><section class="sec"><h2>Session progress</h2><div class="wrap">';
+    PROG.forEach(function (p) { h += btn('seg' + on(p === S.prog), 'prog', p, p); });
+    h += '</div></section><section class="sec"><label for="quick-note" style="font-size:14px;font-weight:700;color:var(--muted)">Quick comment (optional)</label>' +
+      '<input id="quick-note" type="text" placeholder="e.g. used slant board" value="' + esc(S.note) + '">' +
+      '<div class="tiny">Any name typed here is swapped for the student code before drafting.</div></section>' +
+      btn('primary', 'end', null, 'End session · 9:45 AM') + '</div>';
+    return h;
+  }
+
+  function otterNote() {
+    var acts = ACTS.filter(function (a) { return S.acts.indexOf(a[0]) >= 0; }).map(function (a) { return a[1].toLowerCase(); }).join(', ') || '[no activities recorded]';
+    var g = function (n, name) {
+      var c = S['g' + n + 'c'], t = S['g' + n + 't'];
+      return t ? name + ': ' + c + '/' + t + ' trials correct (' + pct(c, t) + ') with ' + S['g' + n + 'p'].toLowerCase() + ' prompts.' : name + ': not addressed this session.';
+    };
+    return {
+      s: 'Arrived ' + S.reg.toLowerCase() + '; engagement ' + S.eng + '/5.',
+      o: 'Individual session, direct in person, 9:15–9:45 AM (30 min). Activities: ' + acts + '. ' + g(1, 'Goal 1, letter formation on 3-line paper') + ' ' + g(2, 'Goal 2, cutting a curved line within ¼ in') + (S.note ? ' Comment: ' + S.note : ''),
+      a: S.prog ? 'Session progress: ' + S.prog.toLowerCase() + '. Goal 1 is at ' + pct(S.g1c, S.g1t) + ' against a 90% criterion.' : '[Progress indicator missing. Add one before signing.]',
+      p: 'Continue IEP goals 1 and 2 at the current service frequency. [Add plan details]'
+    };
+  }
+
+  function reviewItems() {
+    var mk = function (id, title, sub, ready, warn, preview) {
+      var signed = !!S.signed[id];
+      return { id: id, title: title, sub: sub, ready: ready, signed: signed, canSign: ready && !signed, warn: warn, preview: preview };
+    };
+    return [
+      mk('group', '8:30 · FINCH, CEDAR, WREN', 'Group of 3 · 3 notes', true, '', 'Three group notes drafted from the 8:30 taps, one per student, each with its own trials and ratings. Open a note to edit before signing.'),
+      mk('otter', '9:15 · K7-OTTER', 'Individual · 30 min', S.ended && !!S.prog, S.ended ? 'Needs progress' : 'In progress', null),
+      mk('heron', '10:00 · M3-HERON', 'Student absent · log entry only', true, '', 'Log line: SA, student absent. No note needed; 30 missed minutes added to the make-up tracker.')
+    ];
+  }
+
+  function review() {
+    var items = reviewItems();
+    var ready = items.filter(function (r) { return r.canSign; }).length;
+    var signed = items.filter(function (r) { return r.signed; }).length;
+    var h = '<div class="pad"><div><div class="eyebrow">Wednesday, October 7</div><h1>Review the day</h1><div class="sub">' + signed + ' of 3 signed · drafts written from your taps</div></div>';
+    if (ready) h += btn('primary', 'signall', null, 'Sign all ready (' + ready + ') with Face ID');
+    items.forEach(function (r) {
+      var b = r.signed ? badge('Signed', 'ok') : r.ready ? badge('Ready', 'n') : badge(r.warn, 'warn');
+      var open = S.open === r.id;
+      h += '<div class="card" style="overflow:hidden">' +
+        btn('', 'toggle', r.id, '<span style="flex:1 1 auto;display:flex;flex-direction:column;gap:2px;min-width:0"><span class="mono" style="font-size:14px">' + r.title + '</span><span class="small">' + r.sub + '</span></span>' + b,
+          ' aria-expanded="' + open + '" style="width:100%;min-height:64px;padding:12px 14px;border:0;background:#fff;color:var(--ink);text-align:left;display:flex;align-items:center;gap:10px"');
+      if (open) {
+        h += '<div style="border-top:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px;font-size:15px">';
+        if (r.id === 'otter') {
+          var n = otterNote();
+          h += '<div><b>S </b>' + esc(n.s) + '</div><div><b>O </b>' + esc(n.o) + '</div><div><b>A </b>' + esc(n.a) + '</div><div><b>P </b>' + esc(n.p) + '</div>' +
+            '<div class="tiny">SBAP log line: 10/07 · 9:15–9:45 · keys 19, 51 · group 1 · D · K7-OTTER</div>';
+          if (S.ended && !S.prog) h += btn('', 'go', 'capture', 'Add progress indicator', ' style="min-height:44px;border:1.5px solid var(--amber);border-radius:10px;background:var(--amberBg);color:var(--amber);font-size:15px;font-weight:700"');
+        } else {
+          h += '<div>' + esc(r.preview) + '</div>';
+        }
+        if (r.canSign) h += '<div style="display:flex;gap:8px">' + btn('secondary', 'noop', null, 'Edit text', ' style="flex:1 1 0;min-height:44px"') + btn('primary', 'sign', r.id, 'Sign and lock', ' style="flex:1 1 0;min-height:44px;font-size:15px"') + '</div>';
+        if (r.signed) h += '<div class="small">Signed ' + S.signed[r.id] + ' by [Your name, OTR/L]. Changes now go in a dated addendum; the original stays on record.</div>';
+        h += '</div>';
+      }
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function reports() {
+    var h = '<div class="pad"><div><h1>Progress report</h1><div class="sub">Pick a student and period; the draft pulls every session.</div></div><div class="wrap" style="gap:8px">';
+    ['otter', 'heron', 'maple'].forEach(function (k) { h += btn('chip mono' + on(k === S.stu), 'stu', k, STU[k].label, ' style="font-size:14px"'); });
+    h += '</div><div class="grid4">';
+    ['Month', 'Quarter', 'Year', 'IEP period'].forEach(function (p) { h += btn('seg' + on(p === S.period), 'period', p, p, ' style="padding:0 4px"'); });
+    h += '</div>';
+    if (!S.drafted) return h + btn('primary', 'draft', null, 'Draft report') + '</div>';
+    var n = S.period === 'Month' ? 4 : 8;
+    STU[S.stu].goals.forEach(function (g) {
+      var d = g.data.slice(g.data.length - n), first = d[0], last = d[d.length - 1];
+      var avg = Math.round(d.reduce(function (s, v) { return s + v; }, 0) / d.length);
+      var code = last >= g.crit ? 'Goal met' : last > first ? 'Progressing' : 'Not progressing';
+      var track = last >= g.crit ? 'Met' : last > first ? 'Yes' : 'Review';
+      h += '<div class="card goal"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h2>' + g.title + '</h2><span class="small" style="white-space:nowrap">' + d.length + ' sessions</span></div>' +
+        '<div class="chart" role="img" aria-label="Percent correct per session: ' + d.join(', ') + '. Criterion ' + g.crit + '%."><div class="crit" style="bottom:' + g.crit + 'px"></div>' +
+        d.map(function (v) { return '<div class="bar" style="height:' + v + 'px"></div>'; }).join('') + '</div>' +
+        '<div class="tiny">% correct per session · dashed line = ' + g.crit + '% IEP criterion · sample data</div>' +
+        '<div class="wrap" style="gap:8px">' + badge(code, 'ok') + badge('On track to meet goal: ' + track, 'n') + '</div>' +
+        '<div style="font-size:15px">Across ' + d.length + ' sessions this ' + S.period.toLowerCase() + ', accuracy on ' + g.name + ' went from ' + first + '% to ' + last + '% (average ' + avg + '%) against a ' + g.crit + '% criterion. [Add classroom observations and next steps]</div></div>';
+    });
+    return h + '<div style="display:flex;gap:8px">' + btn('secondary', 'noop', null, 'Edit', ' style="flex:1 1 0"') + btn('primary', 'noop', null, 'Export PDF', ' style="flex:1 1 0;min-height:48px;font-size:15px"') + '</div>' +
+      '<div class="tiny">The real name is added on this phone at export; the AI only saw the code.</div></div>';
+  }
+
+  function roster() {
+    var h = '<div class="pad"><div><h1>Roster</h1><div class="sub">Codes and aliases everywhere; names only in the vault.</div></div>' +
+      btn('', 'vault', null, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>' + (S.vault ? 'Lock vault' : 'Show real names (Face ID)') + '</span>',
+        ' style="min-height:52px;border:1.5px solid var(--acc);border-radius:12px;background:' + (S.vault ? 'var(--acc)' : '#fff') + ';color:' + (S.vault ? '#fff' : 'var(--acc)') + ';font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px"') +
+      '<div style="display:flex;flex-direction:column;gap:10px">';
+    ROSTER.forEach(function (s) {
+      h += '<div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px"><span class="mono" style="font-size:15px">' + s[0] + '</span><span class="small" style="font-size:14px">' + s[1] + '</span></div><div class="small">' + s[2] + '</div>' +
+        (S.vault ? '<div style="margin-top:4px;padding:8px 10px;border-radius:8px;background:var(--tint);font-size:13px">[Real name] · [DOB] · [PA Secure ID]</div>' : '') + '</div>';
+    });
+    return h + '</div>' + btn('', 'noop', null, 'Add student', ' style="min-height:48px;border:1.5px dashed var(--muted);border-radius:12px;background:transparent;color:var(--ink);font-size:15px;font-weight:700"') +
+      '<div class="small">Names, birth dates and IDs stay on this phone. AI drafting and backups see codes only.</div></div>';
+  }
+
+  var ICONS = {
+    today: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    review: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
+    reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    roster: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/>'
+  };
+
+  function render() {
+    var app = document.getElementById('app');
+    var keep = app.querySelector('.scroll');
+    var top = keep && keep.dataset.screen === S.screen ? keep.scrollTop : 0;
+    var body = { today: today, capture: capture, review: review, reports: reports, roster: roster }[S.screen]();
+    var nav = '<nav aria-label="Main">';
+    ['today', 'review', 'reports', 'roster'].forEach(function (t) {
+      var active = S.screen === t || (t === 'today' && S.screen === 'capture');
+      nav += btn(active ? 'on' : '', 'go', t, '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[t] + '</svg><span>' + t.charAt(0).toUpperCase() + t.slice(1) + '</span>', active ? ' aria-current="page"' : '');
+    });
+    app.innerHTML = '<div class="scroll" data-screen="' + S.screen + '">' + body + '</div>' + nav + '</nav>';
+    app.querySelector('.scroll').scrollTop = top;
+  }
+
+  function set(o) { for (var k in o) S[k] = o[k]; render(); }
+
+  document.getElementById('app').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-a]');
+    if (!b) return;
+    var a = b.dataset.a, v = b.dataset.v;
+    var focus = a + '|' + (v || '');
+    switch (a) {
+      case 'go': S.screen = v; history.replaceState(null, '', '#' + v); render(); document.getElementById('app').querySelector('.scroll').scrollTop = 0; return;
+      case 'act': set({ acts: S.acts.indexOf(v) >= 0 ? S.acts.filter(function (x) { return x !== v; }) : S.acts.concat([v]) }); break;
+      case 'hit': S['g' + v + 'c']++; S['g' + v + 't']++; render(); break;
+      case 'miss': S['g' + v + 't']++; render(); break;
+      case 'reset': S['g' + v + 'c'] = 0; S['g' + v + 't'] = 0; render(); break;
+      case 'prompt': var p = v.split('|'); S['g' + p[0] + 'p'] = p[1]; render(); break;
+      case 'reg': set({ reg: v }); break;
+      case 'eng': set({ eng: Number(v) }); break;
+      case 'prog': set({ prog: v }); break;
+      case 'end': S.ended = true; S.open = 'otter'; S.screen = 'review'; history.replaceState(null, '', '#review'); render(); return;
+      case 'toggle': set({ open: S.open === v ? null : v }); break;
+      case 'sign': S.signed[v] = '3:42 PM'; render(); break;
+      case 'signall': reviewItems().forEach(function (r) { if (r.canSign) S.signed[r.id] = '3:42 PM'; }); render(); break;
+      case 'stu': set({ stu: v }); break;
+      case 'period': set({ period: v }); break;
+      case 'draft': set({ drafted: true }); break;
+      case 'vault': set({ vault: !S.vault }); break;
+      default: return;
+    }
+    var again = document.querySelector('button[data-a="' + a + '"]' + (v ? '[data-v="' + CSS.escape(v) + '"]' : ''));
+    if (again) again.focus();
+  });
+  document.getElementById('app').addEventListener('input', function (e) { if (e.target.id === 'quick-note') S.note = e.target.value; });
+  render();
+})();
+</script>
+</body>
+</html>

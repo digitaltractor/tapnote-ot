@@ -1,0 +1,15 @@
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+.build/
+.swiftpm/
+Packages/TapNoteCore/.build/
+*.ipa
+*.dSYM.zip
+.DS_Store
+# Never commit exports or backups
+*.tapnotebackup
+exports/
