@@ -25,11 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        if: hashFiles('wardnote/package.json') != ''
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: wardnote/package-lock.json
-      - working-directory: wardnote
+      - if: hashFiles('wardnote/package.json') != ''
+        working-directory: wardnote
         run: npm ci && npm test && npm run build
 
   core-tests-linux:
